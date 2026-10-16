@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIPanel: local PHP development for Linux, without Docker</title>
+<meta name="description" content="PIPanel is a desktop app for Linux Mint and Ubuntu that runs Nginx, several PHP versions, MySQL or MariaDB, trusted HTTPS and *.test domains for your Laravel and PHP projects, with no Docker and no daily sudo.">
+<meta name="theme-color" content="#7c3aed">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="preload" href="assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/site.css">
+<meta property="og:title" content="PIPanel: local PHP development for Linux, without Docker">
+<meta property="og:description" content="Nginx, multiple PHP versions, MySQL or MariaDB, HTTPS and *.test domains in one desktop app.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://pahrulirfan.github.io/PHP-DevTools/assets/img/light-sites.png">
+<script>/* avoid a flash of the wrong theme */ try { var t = localStorage.getItem("pipanel-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="30" height="30">PIPanel</a>
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#install">Install</a>
+      <a href="#sites">Guide</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/pahrulirfan/PHP-DevTools">GitHub</a>
+    </nav>
+    <button class="icon-btn" id="theme" type="button" aria-label="Switch theme" title="Switch theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
+    </button>
+    <button class="icon-btn menu-btn" id="menu" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+<div id="top"></div>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <div class="wrap">
+    <span class="eyebrow">For Linux Mint and Ubuntu</span>
+    <h1>Local PHP development, <em>without Docker</em>.</h1>
+    <p class="lead">PIPanel runs Nginx, several PHP versions, MySQL or MariaDB, trusted HTTPS and <code>*.test</code> domains for your Laravel and PHP projects. Install once, then work without opening a terminal or typing <code>sudo</code>.</p>
+    <div class="cta">
+      <a class="btn primary" href="#install">Get started</a>
+      <a class="btn" href="https://github.com/pahrulirfan/PHP-DevTools">View on GitHub</a>
+    </div>
+    <div class="hero-shot"><img data-shot="sites" src="assets/img/light-sites.png" width="1120" height="720" alt="PIPanel Sites page: a list of local sites such as blog.test and shop-api.test with PHP version pickers and HTTPS toggles"></div>
+    <ul class="facts">
+      <li>No Docker</li><li>Runs as your user</li><li>Many PHP versions side by side</li><li>Light and dark theme</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ FEATURES ============ -->
+<section id="features">
+  <div class="wrap">
+    <div class="kicker">Features</div>
+    <h2>Everything a PHP project needs, in one window</h2>
+    <p class="sub">Drop a project in a folder and it is served at <code>name.test</code>. Pick its PHP version, turn on HTTPS, create a database, share it with a client. The services keep running when you close the app.</p>
+    <div class="grid">
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/></svg></div>
+        <h3>Sites on <code>.test</code></h3><p>Choose a projects folder and every subfolder becomes a site automatically. Link single folders, and change the web root of any site.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-5 4 5 4"/><path d="m16 8 5 4-5 4"/><path d="m14 5-4 14"/></svg></div>
+        <h3>Several PHP versions</h3><p>Install PHP 8.2 to 8.5 side by side, choose a version per site, and switch the <code>php</code> command in your terminal. Edit <code>php.ini</code> values and toggle extensions without root.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15c-1.5 1-2 4-2 6 2 0 5-.5 6-2"/><path d="M12 15 9 12c1-4 4-8 11-9 0 7-5 10-9 11z"/><circle cx="15" cy="9" r="1.5"/></svg></div>
+        <h3>Laravel built in</h3><p>Create a project, get its database and <code>.env</code> filled in, and run migrations. Install packages such as Telescope, Livewire or Pest with one click.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+        <h3>MySQL or MariaDB</h3><p>Pick the engine that matches your production server. Create databases and users, change the root password, and copy ready-made <code>.env</code> settings.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+        <h3>Trusted HTTPS</h3><p>One toggle gives a site a certificate your browser trusts (through mkcert), so secure cookies, OAuth callbacks and service workers behave like production. Optional.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20 7v10l-8 4.5L4 17V7z"/><path d="m4 7 8 4.5L20 7"/><path d="M12 11.5v10"/></svg></div>
+        <h3>Node.js versions</h3><p>Install and switch Node versions with fnm. Folders with a <code>.node-version</code> or <code>.nvmrc</code> switch automatically in bash and zsh.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4"/><path d="m15.4 6.5-6.8 4"/></svg></div>
+        <h3>Share with ngrok</h3><p>Give a client a public link to a local site. The panel checks your ngrok token before it lets you start, and shows ngrok's own error if something is wrong.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/></svg></div>
+        <h3>Services and Doctor</h3><p>Start and stop every service, read logs, and run diagnostics that name what is wrong, for example which program is holding port 80.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></div>
+        <h3>Never lose a task</h3><p>Installs run in the background and every one stays listed with its result. Package installs wait for each other so they never collide; everything else runs in parallel.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section id="how">
+  <div class="wrap">
+    <div class="kicker">How it works</div>
+    <h2>Real services, managed for you</h2>
+    <p class="sub">PIPanel is a friendly control panel for ordinary Linux software. Nothing is hidden in a container, and everything it starts runs as <strong>your</strong> user through <code>systemctl --user</code>.</p>
+    <div class="flow" role="img" aria-label="Request path: browser, dnsmasq, Nginx, PHP-FPM, database">
+      <div class="step"><b>Browser</b><small>blog.test</small></div><span class="arrow">→</span>
+      <div class="step"><b>dnsmasq</b><small>*.test → 127.0.0.1</small></div><span class="arrow">→</span>
+      <div class="step"><b>Nginx</b><small>one config per site</small></div><span class="arrow">→</span>
+      <div class="step"><b>PHP-FPM</b><small>the version you chose</small></div><span class="arrow">→</span>
+      <div class="step"><b>MySQL / MariaDB</b><small>your own instance</small></div>
+    </div>
+    <p style="margin-top:22px">Because the services are systemd user units, they survive closing the window, restart on failure, and write logs you can read in the app. The only thing that needs administrator rights is the one-time setup and installing or removing packages, and that goes through a small, fixed-purpose helper (see <a href="#security">Files and security</a>).</p>
+  </div>
+</section>
+
+<!-- ============ SCREENSHOTS ============ -->
+<section id="screenshots">
+  <div class="wrap">
+    <div class="kicker">Screenshots</div>
+    <h2>A calm, modern interface</h2>
+    <p class="sub">Light, dark, or follow your system. These are the real windows, shown with sample data.</p>
+    <div class="tabs" role="tablist" aria-label="Screenshots">
+      <button class="tab" role="tab" aria-selected="true" data-shot="sites" data-alt="The Sites page" data-caption="Sites: every folder in your projects folder is a site. Choose its PHP version, turn on HTTPS, open it, or change its web root.">Sites</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="laravel" data-alt="The Laravel page" data-caption="Laravel: install and remove packages in a project, with the project's own PHP version, and run migrations.">Laravel</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="php" data-alt="The PHP page" data-caption="PHP: install versions side by side, choose the default, and edit common php.ini values.">PHP</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="php-extensions" data-natural data-alt="PHP extensions" data-caption="Extensions: tick to enable. Names in bold are required by Laravel and Composer.">Extensions</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="database" data-alt="The Database page" data-caption="Database: MySQL 8 or MariaDB, databases, users and the root password.">Database</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="node" data-alt="The Node page" data-caption="Node: install and switch versions with fnm.">Node</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="share" data-alt="The Share page" data-caption="Share: verify your ngrok token once, then publish a site with one click.">Share</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="services-doctor" data-alt="The Services page with Doctor" data-caption="Services: start and stop everything, and run Doctor to check ports, DNS and certificates.">Services</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="logs" data-alt="The Logs page" data-caption="Logs: per-site access and error logs, PHP-FPM, the database and the services.">Logs</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="settings" data-alt="The Settings page" data-caption="Settings: theme, start at login, projects folders and web ports.">Settings</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-shot="activity" data-alt="Background tasks" data-caption="Background tasks: running, waiting and finished installs stay visible, so you always know what happened.">Tasks</button>
+    </div>
+    <div class="shot"><img id="gallery-img" data-shot="sites" src="assets/img/light-sites.png" width="1120" height="720" loading="lazy" alt="The Sites page"></div>
+    <p class="caption" id="gallery-caption" aria-live="polite">Sites: every folder in your projects folder is a site. Choose its PHP version, turn on HTTPS, open it, or change its web root.</p>
+  </div>
+</section>
+
+<!-- ============ DOCUMENTATION ============ -->
+<section id="docs">
+  <div class="wrap docs">
+    <aside class="toc" aria-label="On this page">
+      <a href="#install">Install</a>
+      <a href="#quickstart">Your first site</a>
+      <a href="#sites">Sites</a>
+      <a href="#laravel">Laravel</a>
+      <a href="#php">PHP</a>
+      <a href="#node">Node</a>
+      <a href="#database">Database</a>
+      <a href="#share">Share</a>
+      <a href="#services">Services and Doctor</a>
+      <a href="#logs">Logs</a>
+      <a href="#settings">Settings</a>
+      <a href="#security">Files and security</a>
+      <a href="#faq">FAQ</a>
+      <a href="#development">Development</a>
+      <a href="#status">Status</a>
+    </aside>
+
+    <div class="doc">
+
+<h2 id="install">Install</h2>
+<p>PIPanel is tested on <strong>Linux Mint 22.3</strong> (Ubuntu 24.04 base, Cinnamon). It needs a systemd-based Debian/Ubuntu system with <code>apt</code> and <code>systemd-resolved</code>, and Python 3.10 or newer.</p>
+<pre><code>$ sudo apt install -y git python3-venv python3-pip libxcb-cursor0
+$ git clone https://github.com/pahrulirfan/PHP-DevTools.git
+$ cd PHP-DevTools
+$ ./install.sh</code></pre>
+<p><code>install.sh</code> creates a virtual environment, installs the app, adds <strong>PIPanel</strong> to your application menu, and installs the small root helper (this is the only step that asks for your <code>sudo</code> password).</p>
+<p>Open <strong>PIPanel</strong> from the menu and click <strong>Run setup</strong> in the banner. A system password dialog appears once. Setup then:</p>
+<ul>
+  <li>adds the <code>ondrej/php</code> repository and installs Nginx, dnsmasq, mkcert and PHP with the extensions Laravel needs;</li>
+  <li>turns off the system copies of Nginx, MySQL and PHP-FPM, so only PIPanel's own instances run;</li>
+  <li>lets programs started by your user listen on ports 80 and 443, and routes <code>*.test</code> to PIPanel's DNS;</li>
+  <li>creates a local certificate authority for trusted HTTPS, installs Composer, and starts the services.</li>
+</ul>
+<div class="note"><p>You can read exactly what runs as root in <a href="https://github.com/pahrulirfan/PHP-DevTools/blob/main/packaging/pipanel-helper"><code>packaging/pipanel-helper</code></a>. It is one short file that accepts a fixed list of commands.</p></div>
+
+<h2 id="quickstart">Your first site</h2>
+<ol>
+  <li>Open <strong>Sites</strong> and click <strong>Add projects folder</strong>. Choose the folder that holds your projects, for example <code>~/PHPProject</code>.</li>
+  <li>Every subfolder is now a site: <code>~/PHPProject/blog</code> is served at <code>http://blog.test</code>. Click its name to open it.</li>
+  <li>Need a new Laravel app? Click <strong>New Laravel project</strong>. PIPanel creates it, creates a database, fills in <code>.env</code> and runs the migrations.</li>
+</ol>
+<div class="shot"><img data-shot="sites" src="assets/img/light-sites.png" width="1120" height="720" loading="lazy" alt="The Sites page"></div>
+
+<h2 id="sites">Sites</h2>
+<ul>
+  <li><strong>Projects folder.</strong> Every subfolder becomes <code>folder-name.test</code>. Names are lower-cased and spaces become dashes. You can have several projects folders, and change or remove them in Settings.</li>
+  <li><strong>Link one folder.</strong> Serve a single folder under a name you choose, wherever it lives (shown with a trash icon so you can unlink it).</li>
+  <li><strong>PHP version.</strong> Each site has its own picker. The change is applied immediately.</li>
+  <li><strong>HTTPS.</strong> The toggle creates a trusted certificate for the site and reloads Nginx. It needs <code>mkcert</code> (optional, see the FAQ).</li>
+  <li><strong>Web root.</strong> PIPanel detects it: <code>public</code> for Laravel, the project folder for WordPress and plain PHP. If your project uses another folder, click the sliders icon and type it (for example <code>web</code>). It must be inside the project.</li>
+  <li><strong>Quick actions.</strong> Open in the browser, the file manager, VS Code, or a terminal in the project folder.</li>
+</ul>
+<p>If Nginx or DNS is stopped, a banner appears with a <strong>Start services</strong> button.</p>
+
+<h2 id="laravel">Laravel</h2>
+<p>Pick a Laravel project and manage its packages. Composer and <code>artisan</code> run with <strong>that site's PHP version</strong>, so a project on PHP 8.2 never gets packages resolved for 8.4.</p>
+<div class="shot"><img data-shot="laravel" src="assets/img/light-laravel.png" width="1120" height="720" loading="lazy" alt="The Laravel page with a list of installable packages"></div>
+<ul>
+  <li><strong>One-click packages:</strong> Debugbar, IDE Helper, Telescope, Pint, Larastan, Livewire, Breeze, Sanctum, Socialite, Spatie Permission, Horizon and Pest. Installed ones are detected from <code>composer.json</code> and can be removed.</li>
+  <li><strong>Any other package:</strong> type <code>vendor/package</code> or <code>vendor/package:^1.0</code>, optionally as a dev dependency.</li>
+  <li><strong>Run migrations</strong> runs <code>php artisan migrate --force</code>. New projects use the database for sessions, so the tables must exist before the first page loads (creating a project from PIPanel does this for you).</li>
+</ul>
+
+<h2 id="php">PHP</h2>
+<div class="shot"><img data-shot="php" src="assets/img/light-php.png" width="1120" height="720" loading="lazy" alt="The PHP page"></div>
+<ul>
+  <li><strong>Versions.</strong> Install or remove 8.2 to 8.5 (8.1 is listed but end-of-life). The default version is used for new sites and for the <code>php</code> command in your terminal.</li>
+  <li><strong>php.ini values.</strong> <code>memory_limit</code>, <code>upload_max_filesize</code>, <code>post_max_size</code> and <code>max_execution_time</code>. Values are validated, and the upload size also sets Nginx's request limit.</li>
+  <li><strong>Extensions.</strong> Like a normal Ubuntu install, every extension of the installed packages is enabled; untick to disable. Names in bold are required by Laravel and Composer, and PIPanel asks before disabling them. A drop-down offers common extras such as <code>redis</code>, <code>imagick</code> and <code>xdebug</code>.</li>
+  <li><strong>Composer</strong> is installed as the official <code>composer.phar</code> after its checksum is verified.</li>
+</ul>
+<div class="shot"><img data-shot="php-extensions" src="assets/img/light-php-extensions.png" loading="lazy" alt="PHP extensions with Laravel-required ones in bold" style="max-width:560px"></div>
+<p>All of this lives in your home folder. PIPanel never edits <code>/etc/php</code>; it gives each PHP version its own <code>conf.d</code> folder instead.</p>
+
+<h2 id="node">Node</h2>
+<p>Installs <a href="https://github.com/Schniz/fnm">fnm</a>, then lets you install, remove and choose the default Node version. The shell integration (a clearly marked block in <code>~/.bashrc</code>, <code>~/.zshrc</code> and <code>~/.profile</code>) switches versions automatically when you enter a folder with a <code>.node-version</code> or <code>.nvmrc</code> file. Turn it off and the block is removed cleanly.</p>
+<div class="shot"><img data-shot="node" src="assets/img/light-node.png" width="1120" height="720" loading="lazy" alt="The Node page"></div>
+
+<h2 id="database">Database</h2>
+<div class="shot"><img data-shot="database" src="assets/img/light-database.png" width="1120" height="960" loading="lazy" alt="The Database page"></div>
+<ul>
+  <li><strong>Engine.</strong> Choose <strong>MySQL 8</strong> or <strong>MariaDB</strong> to match your production server. They share port 3306, so only one runs at a time, and each keeps its own data folder. Switching does not convert existing databases.</li>
+  <li><strong>Databases and users.</strong> Create and delete databases, create users with access to one database or all, and change the root password.</li>
+  <li><strong>Copy Laravel .env</strong> puts the connection settings on your clipboard (<code>DB_CONNECTION=mysql</code> works for both engines).</li>
+</ul>
+<p>The server listens on <code>127.0.0.1</code> only. The root password is stored in a private file (mode 0600) and is never put on a command line.</p>
+
+<h2 id="share">Share</h2>
+<div class="shot"><img data-shot="share" src="assets/img/light-share.png" width="1120" height="720" loading="lazy" alt="The Share page"></div>
+<p>Sharing uses <a href="https://ngrok.com">ngrok</a>, which requires a (free) account and an <strong>authtoken</strong>. The page walks you through it:</p>
+<ol>
+  <li>Create the account and copy the token from the ngrok dashboard (both links are on the page).</li>
+  <li>Paste it and click <strong>Save</strong>. PIPanel then <strong>verifies</strong> it by starting ngrok briefly and waiting until ngrok's servers accept it. If they refuse, you see ngrok's own message.</li>
+  <li>Only after the token is verified does <strong>Start sharing</strong> become available. Pick a site and click it; the public URL appears with a Copy button.</li>
+</ol>
+<p>Free accounts allow one session at a time and show a warning page the first time a link is opened. Only a fingerprint of your token is remembered by PIPanel; the token itself stays in ngrok's own config file.</p>
+
+<h2 id="services">Services and Doctor</h2>
+<div class="shot"><img data-shot="services-doctor" src="assets/img/light-services-doctor.png" width="1120" height="900" loading="lazy" alt="The Services page with Doctor results"></div>
+<p>Start or stop Nginx, DNS, each PHP-FPM version and the database, individually or all at once. <strong>Start all</strong> waits and checks that the services really stay up; if one does not, you get its log lines and, for a port conflict, the name of the program that holds the port.</p>
+<p><strong>Doctor</strong> checks the root helper, base packages, port access, leftover system services, ports 80/443, whether PIPanel's services run, DNS resolution for <code>.test</code>, and the certificate authority. Problems come with a <strong>Fix</strong> button where one is possible.</p>
+
+<h2 id="logs">Logs</h2>
+<p>Read each site's access and error log, PHP-FPM logs, the database log and the journal of the services. Enable <em>Auto-refresh</em> to follow a log live.</p>
+<div class="shot"><img data-shot="logs" src="assets/img/light-logs.png" width="1120" height="720" loading="lazy" alt="The Logs page"></div>
+
+<h2 id="settings">Settings</h2>
+<div class="shot"><img data-shot="settings" src="assets/img/light-settings.png" width="1120" height="720" loading="lazy" alt="The Settings page"></div>
+<ul>
+  <li><strong>Theme:</strong> follow the system, light, or dark. The button in the corner of every page also switches it.</li>
+  <li><strong>At login:</strong> open PIPanel in the tray, and start Nginx, PHP-FPM and DNS automatically.</li>
+  <li><strong>Projects folders:</strong> add, change or remove them.</li>
+  <li><strong>Web ports:</strong> the defaults are 80 and 443. If another program already uses them (DDEV, Docker, Apache), choose other ports such as 8080 and 8443. Sites then open as <code>http://name.test:8080</code>.</li>
+</ul>
+<h3>Background tasks</h3>
+<p>Installs can take minutes, so they run in the background. A panel at the top lists every task: <em>Running</em>, <em>Waiting</em> (package installs go one at a time because <code>apt</code> allows only one), <em>Done</em>, or <em>Failed</em> with a <strong>Details</strong> button. Failures stay until you dismiss them.</p>
+<div class="shot"><img data-shot="activity" src="assets/img/light-activity.png" width="1120" height="720" loading="lazy" alt="The task panel showing a finished, a running and a waiting task"></div>
+
+<h2 id="security">Files and security</h2>
+<h3>Where things live</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>What</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Settings</td><td><code>~/.config/pipanel/config.json</code></td></tr>
+<tr><td>Generated Nginx, PHP-FPM, DNS and database config</td><td><code>~/.config/pipanel/{nginx,php,dns,mysql,mariadb}/</code></td></tr>
+<tr><td>systemd user units</td><td><code>~/.config/systemd/user/pipanel-*.service</code></td></tr>
+<tr><td>Certificates</td><td><code>~/.config/pipanel/certs/</code></td></tr>
+<tr><td>Database data</td><td><code>~/.local/share/pipanel/{mysql,mariadb}/</code></td></tr>
+<tr><td>Composer, <code>php</code> wrapper, fnm, ngrok</td><td><code>~/.local/share/pipanel/bin/</code></td></tr>
+<tr><td>Logs</td><td><code>~/.local/state/pipanel/logs/</code></td></tr>
+<tr><td>Sockets and PID files</td><td><code>$XDG_RUNTIME_DIR/pipanel/</code> (cleaned at logout)</td></tr>
+<tr><td>Root helper</td><td><code>/usr/lib/pipanel/pipanel-helper</code> and a polkit policy</td></tr>
+</tbody></table></div>
+<h3>What runs as root</h3>
+<p>Only the helper, started through <code>pkexec</code> (the normal graphical password dialog). It is owned by root, so it cannot be edited by your user or by other programs, and it accepts only these commands: <code>setup</code>, <code>install-php</code>, <code>remove-php</code>, <code>install-ext</code>, <code>install-database</code>, <code>trust-ca</code>, <code>untrust-ca</code> and <code>disable-system-services</code>. Each argument is validated (for example a PHP version must match <code>8.N</code>), and the user to configure is taken from the system's <code>PKEXEC_UID</code>, never from arguments. <code>trust-ca</code> only accepts your own mkcert root certificate, and refuses anything that contains a private key.</p>
+<p>Everything else, including Nginx, PHP, the database and ngrok, runs as you.</p>
+<h3>Uninstall</h3>
+<pre><code>$ ./uninstall.sh</code></pre>
+<p>Removes the services, launcher, shell blocks, the root helper and the system files that setup created. System packages (Nginx, PHP, MariaDB and so on) are left alone, and your data stays in <code>~/.config/pipanel</code> and <code>~/.local/share/pipanel</code> until you delete it.</p>
+
+<h2 id="faq">FAQ and troubleshooting</h2>
+<details><summary>The browser says "This site can't be reached" (DNS_PROBE_FINISHED_NXDOMAIN)</summary>
+<p>PIPanel's DNS or Nginx is not running. Open <strong>Sites</strong> and click <strong>Start services</strong> in the banner, or use <strong>Services → Start all</strong>. If that fails, the message explains why, most often a port conflict (next question). <strong>Services → Doctor</strong> shows the state of every part.</p></details>
+<details><summary>Start services says port 80 or 443 is already in use</summary>
+<p>Another program holds the port. PIPanel names it, and it is usually a Docker container such as DDEV's router (<code>ddev poweroff</code> stops it) or Apache. Either stop that program, or move PIPanel to other ports in <strong>Settings → Web ports</strong> (for example 8080 and 8443).</p></details>
+<details><summary>A new Laravel project shows "Table 'sessions' doesn't exist"</summary>
+<p>New Laravel projects keep sessions in the database, so the migrations must run once. Creating a project from PIPanel does that for you. For an existing project, open the <strong>Laravel</strong> page and click <strong>Run migrations</strong>.</p></details>
+<details><summary>Is mkcert required?</summary>
+<p>No. Everything works over plain <code>http://name.test</code> without it. mkcert is only needed for the HTTPS toggle, because it creates certificates your browser trusts without warnings. That matters for secure cookies, OAuth callbacks, service workers and camera access. Install it with <code>sudo apt install mkcert</code>.</p></details>
+<details><summary>Why are all PHP extensions ticked after installing a version?</summary>
+<p>That is how Ubuntu works: installing a PHP package enables its extensions. The list only shows extensions that are installed. Bold ones are required by Laravel and Composer; untick the others if you want to turn them off.</p></details>
+<details><summary>Do I need an ngrok account to share a site?</summary>
+<p>Yes. ngrok refuses to start a tunnel without an account's authtoken (error <code>ERR_NGROK_4018</code>). Save the token on the <strong>Share</strong> page and click <strong>Verify token</strong>; sharing is enabled only after ngrok accepts it.</p></details>
+<details><summary>Should I choose MySQL or MariaDB?</summary>
+<p>Choose the one your production server uses. Many shared hosts run MariaDB, while many VPS and cloud setups run MySQL 8. Both work with Laravel, and you can keep both installed and switch (they use separate data folders).</p></details>
+<details><summary>Can I use Apache, or another operating system?</summary>
+<p>Not at the moment. PIPanel uses Nginx (like Laravel Herd) and has only been tested on Linux Mint 22.3. Ubuntu 22.04 and 24.04 are expected to work; other distributions are not supported. Applications that depend on <code>.htaccess</code> rules need an equivalent Nginx configuration.</p></details>
+<details><summary>Can it run alongside Docker or DDEV?</summary>
+<p>Yes, as long as they do not use the same ports. They can share the machine, but only one program can listen on port 80 at a time.</p></details>
+
+<h2 id="development">Development</h2>
+<pre><code>$ python3 -m venv .venv
+$ .venv/bin/pip install -e '.[ui,dev]'
+$ .venv/bin/pytest                        # no root and no Nginx needed
+$ .venv/bin/python tools/screenshots.py   # re-render the screenshots in docs/assets/img
+$ .venv/bin/python -m pipanel</code></pre>
+<p>The code is split on purpose: <code>pipanel/core</code> never imports Qt and is tested without a display; the UI only talks to <code>core.controller.Controller</code>. Services, config and files are written through small modules (<code>services.py</code>, <code>php.py</code>, <code>mysql.py</code>, <code>laravel.py</code>, <code>ngrok.py</code>) that take a fake <code>Runner</code> in tests.</p>
+<p>Besides the automated tests, <code>tools/e2e_*.py</code> run the real thing without root: Nginx and PHP-FPM serving a site over HTTP and HTTPS, MySQL and MariaDB logins, Composer, fnm and ngrok. They use their own unit prefix, so they never touch a real installation.</p>
+<p>Read the full design notes in <a href="https://github.com/pahrulirfan/PHP-DevTools/blob/main/PLAN.md">PLAN.md</a>.</p>
+
+<h2 id="status">Status and known limits</h2>
+<ul>
+  <li>Tested on Linux Mint 22.3 (Cinnamon, Ubuntu 24.04 base). The automated suite has more than 270 tests; the real-service scripts cover the web stack, both databases and the downloads.</li>
+  <li>Following the system theme on Cinnamon relies on a <code>gsettings</code> fallback because Qt does not report it there.</li>
+  <li>The ngrok failure paths (no token, invalid token) are checked against ngrok's servers. A successful tunnel needs a real account and is exercised by you, not by the tests.</li>
+  <li>Not yet packaged as a <code>.deb</code> or AppImage.</li>
+</ul>
+
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>PIPanel, by Pahrul Irfan.</span>
+    <span><a href="https://github.com/pahrulirfan/PHP-DevTools">Source on GitHub</a> · Inter font under the SIL Open Font License</span>
+  </div>
+</footer>
+
+<script src="assets/js/site.js" defer></script>
+<noscript><style>.tabs{display:none}</style></noscript>
+</body>
+</html>
