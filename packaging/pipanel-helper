@@ -1,0 +1,201 @@
+#!/usr/bin/python3
+"""PIPanel root helper. Installed in /usr/lib/pipanel/ (owned by root) and called through pkexec.
+
+It only accepts fixed subcommands with validated arguments. The target user is taken from
+PKEXEC_UID (set by pkexec), never from the arguments.
+
+For tests: PIPANEL_HELPER_DRYRUN=1 prints the commands (one JSON per line) instead of running them, and
+PIPANEL_HELPER_ROOT=<dir> redirects writes of system files to be under that directory.
+"""
+import json
+import os
+import pwd
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+DRY = os.environ.get("PIPANEL_HELPER_DRYRUN") == "1"
+ROOT = Path(os.environ.get("PIPANEL_HELPER_ROOT", "/"))
+
+PHP_VERSION = re.compile(r"^8\.[0-9]$")
+EXT_NAME = re.compile(r"^[a-z0-9]+$")
+PHP_EXTS = ["fpm", "cli", "mbstring", "xml", "curl", "zip", "mysql", "sqlite3", "bcmath", "intl", "gd"]
+BASE_PKGS = ["nginx", "dnsmasq-base", "libnss3-tools", "mkcert", "unzip", "curl", "ca-certificates"]
+# database engines: apt packages and the AppArmor profile that would confine the server binary
+DB_ENGINES = {
+    "mysql": {"pkgs": ["mysql-server-core-8.0", "mysql-client-core-8.0"], "profile": "usr.sbin.mysqld"},
+    "mariadb": {"pkgs": ["mariadb-server-core", "mariadb-client-core"], "profile": "usr.sbin.mariadbd"},
+}
+SYSTEM_SERVICES = ["nginx", "mysql", "mysqld", "mariadb"]
+DNS_PORT = 5354
+TLD = "test"
+
+
+def die(msg, code=2):
+    print(f"pipanel-helper: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def target_user():
+    uid = os.environ.get("PKEXEC_UID")
+    if uid is None and DRY:
+        uid = str(os.getuid())
+    if uid is None or not uid.isdigit() or int(uid) == 0:
+        die("must be called through pkexec by a non-root user")
+    return pwd.getpwuid(int(uid))
+
+
+def run(cmd, check=True):
+    if DRY:
+        print(json.dumps(cmd))
+        return 0
+    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+    r = subprocess.run(cmd, env=env)
+    if check and r.returncode != 0:
+        die(f"failed: {' '.join(cmd)}", r.returncode)
+    return r.returncode
+
+
+def write(path, text, mode=0o644):
+    dest = ROOT / str(path).lstrip("/")
+    if DRY:
+        print(json.dumps({"write": str(path), "text": text}))
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text)
+    dest.chmod(mode)
+
+
+def apt_install(pkgs):
+    run(["apt-get", "install", "-y", "--no-install-recommends", *pkgs])
+
+
+# package -> a file that must exist when it is really installed. dpkg can say "installed" while another package
+# (for example ddev, which bundles its own mkcert) removed the file, and `apt install` then does nothing.
+PKG_FILES = {"nginx": "usr/sbin/nginx", "dnsmasq-base": "usr/sbin/dnsmasq", "mkcert": "usr/bin/mkcert"}
+
+
+def repair_missing_files():
+    missing = [p for p, f in PKG_FILES.items() if not (ROOT / f).exists()]
+    if missing:
+        run(["apt-get", "install", "--reinstall", "-y", "--no-install-recommends", *missing])
+
+
+def php_pkgs(v):
+    return [f"php{v}-{e}" for e in PHP_EXTS]
+
+
+def disable_system_services(versions=()):
+    units = list(SYSTEM_SERVICES) + [f"php{v}-fpm" for v in versions]
+    for u in units:
+        if run(["systemctl", "cat", f"{u}.service"], check=False) == 0 or DRY:
+            run(["systemctl", "disable", "--now", f"{u}.service"], check=False)
+
+
+def installed_php_versions():
+    d = ROOT / "etc/php"
+    return sorted(p.name for p in d.iterdir() if PHP_VERSION.match(p.name)) if d.is_dir() else []
+
+
+def cmd_setup(args):
+    target_user()
+    default = args[0] if args else "8.3"
+    if not PHP_VERSION.match(default):
+        die("invalid PHP version")
+    run(["apt-get", "update"])
+    apt_install(["software-properties-common"])
+    run(["add-apt-repository", "-y", "ppa:ondrej/php"])
+    run(["apt-get", "update"])
+    apt_install(BASE_PKGS + php_pkgs(default))
+    repair_missing_files()
+    disable_system_services([default])
+    write("/etc/sysctl.d/60-pipanel.conf", "net.ipv4.ip_unprivileged_port_start=80\n")
+    run(["sysctl", "--system"])
+    write("/etc/systemd/resolved.conf.d/pipanel.conf",
+          f"[Resolve]\nDNS=127.0.0.1:{DNS_PORT}\nDomains=~{TLD}\n")
+    run(["systemctl", "restart", "systemd-resolved"], check=False)
+
+
+def cmd_install_php(args):
+    if len(args) != 1 or not PHP_VERSION.match(args[0]):
+        die("usage: install-php 8.x")
+    run(["apt-get", "update"], check=False)
+    apt_install(php_pkgs(args[0]))
+    disable_system_services([args[0]])
+
+
+def cmd_remove_php(args):
+    if len(args) != 1 or not PHP_VERSION.match(args[0]):
+        die("usage: remove-php 8.x")
+    run(["apt-get", "remove", "-y", *php_pkgs(args[0])])
+
+
+def cmd_install_ext(args):
+    if len(args) != 2 or not PHP_VERSION.match(args[0]) or not EXT_NAME.match(args[1]):
+        die("usage: install-ext 8.x name")
+    apt_install([f"php{args[0]}-{args[1]}"])
+    disable_system_services([args[0]])
+
+
+def cmd_install_database(args):
+    if len(args) != 1 or args[0] not in DB_ENGINES:
+        die("usage: install-database " + "|".join(DB_ENGINES))
+    engine, spec = args[0], DB_ENGINES[args[0]]
+    user = target_user()
+    apt_install(spec["pkgs"])
+    disable_system_services()
+    # AppArmor: allow the server to use the user's datadir/socket (only when its profile is installed)
+    profile = spec["profile"]
+    if (ROOT / "etc/apparmor.d" / profile).exists() or DRY:
+        home, uid = user.pw_dir, user.pw_uid
+        write(f"/etc/apparmor.d/local/{profile}",
+              f"# PIPanel\n{home}/.local/share/pipanel/{engine}/ r,\n{home}/.local/share/pipanel/{engine}/** rwk,\n"
+              f"{home}/.local/state/pipanel/logs/** rw,\n/run/user/{uid}/pipanel/** rwk,\n"
+              f"/run/user/{uid}/pipanel/ r,\n{home}/.config/pipanel/{engine}/** r,\n")
+        run(["apparmor_parser", "-r", f"/etc/apparmor.d/{profile}"], check=False)
+
+
+def cmd_trust_ca(args):
+    user = target_user()
+    if len(args) != 1:
+        die("usage: trust-ca <path>")
+    src = Path(args[0]).resolve()
+    allowed = Path(user.pw_dir).resolve() / ".local/share/mkcert/rootCA.pem"
+    if src != allowed or not src.is_file():
+        die(f"only {allowed} may be trusted")
+    text = src.read_text()
+    if text.count("-----BEGIN CERTIFICATE-----") != 1 or "PRIVATE KEY" in text:
+        die("the file is not a single PEM certificate")
+    write("/usr/local/share/ca-certificates/pipanel-mkcert.crt", text)
+    run(["update-ca-certificates"])
+
+
+def cmd_untrust_ca(args):
+    p = ROOT / "usr/local/share/ca-certificates/pipanel-mkcert.crt"
+    if p.exists():
+        p.unlink()
+    run(["update-ca-certificates", "--fresh"], check=False)
+
+
+def cmd_disable_system_services(args):
+    disable_system_services(installed_php_versions())
+
+
+COMMANDS = {
+    "setup": cmd_setup, "install-php": cmd_install_php, "remove-php": cmd_remove_php,
+    "install-ext": cmd_install_ext, "install-database": cmd_install_database, "trust-ca": cmd_trust_ca,
+    "untrust-ca": cmd_untrust_ca, "disable-system-services": cmd_disable_system_services,
+}
+
+
+def main(argv):
+    if not DRY and os.geteuid() != 0:
+        die("must be run as root (through pkexec)")
+    if not argv or argv[0] not in COMMANDS:
+        die("subcommands: " + ", ".join(COMMANDS))
+    COMMANDS[argv[0]](argv[1:])
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
