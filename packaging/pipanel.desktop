@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=PIPanel
+GenericName=PHP development environment
+Comment=Manage Nginx, PHP, MySQL, and .test sites
+Exec=@ROOT@/.venv/bin/pipanel
+Icon=@ICON@
+Terminal=false
+Categories=Development;
+StartupWMClass=pipanel
