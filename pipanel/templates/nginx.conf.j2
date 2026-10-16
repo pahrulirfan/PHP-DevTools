@@ -1,0 +1,32 @@
+daemon off;
+pid {{ run_dir }}/nginx.pid;
+error_log stderr warn;
+
+events {
+    worker_connections 768;
+}
+
+http {
+    include {{ etc_nginx }}/mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    keepalive_timeout 65;
+    server_names_hash_bucket_size 128;
+
+    access_log off;
+
+    client_body_temp_path {{ temp_dir }}/client_body;
+    proxy_temp_path       {{ temp_dir }}/proxy;
+    fastcgi_temp_path     {{ temp_dir }}/fastcgi;
+    uwsgi_temp_path       {{ temp_dir }}/uwsgi;
+    scgi_temp_path        {{ temp_dir }}/scgi;
+
+    # Unknown site
+    server {
+        listen {{ http_port }} default_server;
+        server_name _;
+        return 404 "PIPanel: site not found\n";
+    }
+
+    include {{ sites_dir }}/*.conf;
+}

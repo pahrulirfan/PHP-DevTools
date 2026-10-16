@@ -1,0 +1,7 @@
+port={{ port }}
+listen-address=127.0.0.1
+bind-interfaces
+no-resolv
+no-hosts
+pid-file={{ run_dir }}/dnsmasq.pid
+address=/{{ tld }}/127.0.0.1

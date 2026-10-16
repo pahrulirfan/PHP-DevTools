@@ -1,0 +1,15 @@
+[mysqld]
+basedir=/usr
+datadir={{ datadir }}
+socket={{ socket }}
+pid-file={{ pid }}
+log-error={{ log }}
+port={{ port }}
+bind-address=127.0.0.1
+character-set-server=utf8mb4
+{% if engine == "mysql" %}
+mysqlx=OFF
+lc-messages-dir=/usr/share/mysql
+# without the full mysql-server package /var/lib/mysql-files does not exist and mysqld refuses to start
+secure-file-priv=NULL
+{% endif %}

@@ -1,0 +1,21 @@
+[Unit]
+Description={{ description }}
+After=network.target
+
+[Service]
+Type=simple
+{% for k, v in env.items() %}
+Environment={{ k }}={{ v }}
+{% endfor %}
+{% for c in exec_pre %}
+ExecStartPre={{ c }}
+{% endfor %}
+ExecStart={{ exec_start }}
+{% if exec_reload %}
+ExecReload={{ exec_reload }}
+{% endif %}
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
