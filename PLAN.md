@@ -237,7 +237,8 @@ PIPanel/
 │  │  └─ pages/                  # sites, laravel, php, node, database (mysql.py), share, services, logs, settings
 │  └─ assets/                    # pipanel.svg, fonts/ (Inter Regular + SemiBold, OFL license)
 ├─ tools/                        # screenshots.py and the real end-to-end scripts (e2e_*.py)
-├─ docs/screens/                 # light-*.png and dark-*.png for every page
+├─ docs/                         # documentation site (index.html, assets/) for GitHub Pages
+│  └─ assets/img/                # light-*.png and dark-*.png for every page
 └─ tests/                        # pytest: core, helper (dry run), offscreen UI
 ```
 
@@ -343,7 +344,7 @@ Changing a site's PHP version = change `php_socket`, run `nginx -t`, then reload
   - `php -v` in a new terminal follows the chosen CLI version
   - `mysql` connects through the socket and through `127.0.0.1:3306`
   - With the app window closed the site still opens. After logout/login the services recover according to the autostart setting
-- Offscreen UI screenshots: `python tools/screenshots.py` (results in `docs/screens/`).
+- Offscreen UI screenshots: `python tools/screenshots.py` (results in `docs/assets/img/`).
 
 ## 10. Risks and things to watch
 
@@ -462,4 +463,4 @@ Basic steps:
 - [x] Text contrast is at least 4.5:1 in light and dark (checked automatically by `tests/test_ui.py`).
 - [x] Switching the theme takes effect immediately, and the choice persists after the app is reopened.
 - [ ] "Follow system" changes when the desktop theme changes (the logic is tested; **not yet tried on a real Cinnamon session**).
-- [x] Offscreen screenshots (light and dark) for every page are saved in `docs/screens/` for review.
+- [x] Offscreen screenshots (light and dark) for every page are saved in `docs/assets/img/` for review.
