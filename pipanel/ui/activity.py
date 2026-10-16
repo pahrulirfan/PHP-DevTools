@@ -46,6 +46,7 @@ class ActivityPanel(QWidget):
         t = theme.tokens()
         row = QHBoxLayout()
         row.setSpacing(10)
+        row.setAlignment(Qt.AlignVCenter)
         mark = QLabel()
         mark.setFixedWidth(18)
         text = label(info.label.rstrip("…").rstrip("."))
@@ -60,7 +61,7 @@ class ActivityPanel(QWidget):
             row.addStretch(1)
             row.addWidget(status)
             status.setText("Running")
-            row.addWidget(bar)
+            row.addWidget(bar, 0, Qt.AlignVCenter)
             return row
         if info.state == QUEUED:
             mark.setPixmap(icon("refresh", t["text-muted"], 14).pixmap(14, 14))

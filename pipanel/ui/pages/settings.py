@@ -86,12 +86,12 @@ class SettingsPage(Page):
         if not ctl.cfg.parked:
             lay.addWidget(label("No projects folder yet.", "muted"))
         for p in ctl.cfg.parked:
-            lay.addLayout(hbox(label(p, "mono"), None,
+            lay.addLayout(hbox(label(p.replace(str(Path.home()), "~"), "mono"), None,
                                button("Change…", None, "folder", lambda p=p: self.change_folder(p)),
                                button("Remove", None, on_click=lambda p=p: self.remove_folder(p))))
         lay.addLayout(hbox(button("Add folder", "primary", "folder-plus", self.add_folder), None))
         self.sys_label.setText(f"Domain: *.{ctl.cfg.tld}   DNS: 127.0.0.1:{ctl.cfg.dns_port}\n"
-                               f"Config: {ctl.paths.config}\nRoot helper: "
+                               f"Config: {str(ctl.paths.config).replace(str(Path.home()), '~')}\nRoot helper: "
                                f"{'installed' if ctl.priv.available() else 'not installed (run ./install.sh)'}")
 
     # ---- projects folders ----
