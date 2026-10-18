@@ -23,8 +23,11 @@ class ActivityPanel(QWidget):
         self.rows.setContentsMargins(12, 8, 12, 8)
         self.rows.setSpacing(6)
         tasks.changed.connect(self.rebuild)
-        theme.bus.changed.connect(lambda _t: self.rebuild())
+        theme.bus.changed.connect(self._theme_changed)   # a bound method is disconnected when the panel is deleted
         self.setVisible(False)
+
+    def _theme_changed(self, _t) -> None:
+        self.rebuild()
 
     def rebuild(self) -> None:
         clear_layout(self.rows)
@@ -34,7 +37,7 @@ class ActivityPanel(QWidget):
             self.rows.addLayout(self._row(info))
             if info.state == DONE and info.id not in self._scheduled:
                 self._scheduled.add(info.id)
-                QTimer.singleShot(AUTO_DISMISS_MS, lambda i=info.id: self._auto_dismiss(i))
+                QTimer.singleShot(AUTO_DISMISS_MS, self, lambda i=info.id: self._auto_dismiss(i))   # not after deletion
 
     def _auto_dismiss(self, jid: int) -> None:
         self._scheduled.discard(jid)

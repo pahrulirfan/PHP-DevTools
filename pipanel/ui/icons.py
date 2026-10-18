@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, Qt
-from PySide6.QtGui import QGuiApplication, QIcon, QImage, QPainter, QPixmap
+from PySide6.QtCore import QByteArray, QPointF, Qt
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
 _P = {
@@ -37,6 +37,10 @@ _P = {
     "chevron-down": '<path d="m6 9 6 6 6-6"/>',
     "stethoscope": '<path d="M6 3v6a5 5 0 0 0 10 0V3"/><path d="M11 14v2a4 4 0 0 0 8 0v-2"/><circle cx="19" cy="12" r="2"/>',
     "server": '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/>',
+    "mail": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/>',
+    "download": '<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>',
+    "upload": '<path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>',
+    "plug": '<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>',
     "rocket": '<path d="M5 15c-1.5 1-2 4-2 6 2 0 5-.5 6-2"/><path d="M12 15 9 12c1-4 4-8 11-9 0 7-5 10-9 11z"/><circle cx="15" cy="9" r="1.5"/>',
 }
 
@@ -60,6 +64,20 @@ def pixmap(name: str, color: str, size: int = 18) -> QPixmap:
 
 def icon(name: str, color: str, size: int = 18) -> QIcon:
     return QIcon(pixmap(name, color, size))
+
+
+def dot_icon(color: str, size: int = 16) -> QIcon:
+    """A filled status dot (tray menu)."""
+    img = QImage(size, size, QImage.Format_ARGB32_Premultiplied)
+    img.fill(Qt.transparent)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(color))
+    r = size * 0.3
+    p.drawEllipse(QPointF(size / 2, size / 2), r, r)
+    p.end()
+    return QIcon(QPixmap.fromImage(img))
 
 
 GLYPH = ('<path d="M23 47V17h11.5a10.5 10.5 0 0 1 0 21H23" stroke="#fff" stroke-width="6.5" '

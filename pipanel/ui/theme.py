@@ -170,7 +170,9 @@ class ThemeManager(QObject):
         t = TOKENS[self.current]
         extra = write_arrow_files(self.cache_dir, t)
         self.app.setPalette(build_palette(t))
-        self.app.setStyleSheet(render_qss(t, extra))
+        qss = render_qss(t, extra)
+        if self.app.styleSheet() != qss:   # setting it restyles every widget, even with the same text
+            self.app.setStyleSheet(qss)
         if self.mode == "system" and QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Unknown:
             self._poll.start()
         else:

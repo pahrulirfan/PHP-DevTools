@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .core.controller import Controller
-from .ui.icons import logo_icon
 from .ui.main_window import MainWindow
 from .ui.theme import ThemeManager, load_fonts
+from .ui.tray import Tray
 
 
 def create(ctl: Controller | None = None, app: QApplication | None = None):
@@ -17,31 +16,18 @@ def create(ctl: Controller | None = None, app: QApplication | None = None):
     app.setApplicationDisplayName("PIPanel")
     app.setDesktopFileName("pipanel")
     ctl = ctl or Controller()
+    try:
+        ctl.install_cli_launcher(sys.executable)   # the `pipanel` command for terminals
+    except OSError:
+        pass
     load_fonts(app)
     themer = ThemeManager(app, ctl.cfg.theme)
     win = MainWindow(ctl, themer)
     tray = None
     if QSystemTrayIcon.isSystemTrayAvailable():
-        tray = QSystemTrayIcon(logo_icon(), app)
-        tray.setToolTip("PIPanel")
-        menu = QMenu()
-        for text, fn in (("Open PIPanel", lambda: (win.showNormal(), win.activateWindow())),
-                         ("Start all services", lambda: win.tasks.run(ctl.start_all)),
-                         ("Stop all services", lambda: win.tasks.run(ctl.stop_all))):
-            a = QAction(text, menu)
-            a.triggered.connect(lambda _=False, f=fn: f())
-            menu.addAction(a)
-        menu.addSeparator()
-        quit_a = QAction("Quit", menu)
-
-        def quit_():
-            win.quitting = True
-            app.quit()
-        quit_a.triggered.connect(quit_)
-        menu.addAction(quit_a)
-        tray.setContextMenu(menu)
-        tray.activated.connect(lambda r: win.showNormal() if r == QSystemTrayIcon.Trigger else None)
+        tray = Tray(ctl, win, app, win.monitor)
         tray.show()
+        win.notifier.tray_icon = tray.icon   # fallback when notify-send is missing
         win.tray_available = True
     return app, win, tray
 
