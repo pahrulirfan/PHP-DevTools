@@ -22,6 +22,7 @@
   <div class="wrap">
     <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="30" height="30">PIPanel</a>
     <nav class="nav" id="nav" aria-label="Main">
+      <a href="#why">Why PIPanel</a>
       <a href="#features">Features</a>
       <a href="#screenshots">Screenshots</a>
       <a href="#install">Install</a>
@@ -53,10 +54,44 @@
     </div>
     <div class="hero-shot"><img data-shot="sites" src="assets/img/light-sites.png" width="1120" height="720" alt="PIPanel Sites page: a list of local sites such as blog.test and shop-api.test with PHP version pickers and HTTPS toggles"></div>
     <ul class="facts">
-      <li>No Docker</li><li>Runs as your user</li><li>Many PHP versions side by side</li><li>Light and dark theme</li>
+      <li>Built for Linux</li><li>No Docker</li><li>Runs as your user</li><li>Free and open source</li>
     </ul>
   </div>
 </div>
+
+<!-- ============ WHY ============ -->
+<section id="why">
+  <div class="wrap">
+    <div class="kicker">Why PIPanel</div>
+    <h2>What you won't get from Herd or Laragon</h2>
+    <p class="sub">Herd is for macOS and Windows, Laragon for Windows. PIPanel brings the same comfort to Linux, and does a few things those apps leave to you.</p>
+    <div class="grid">
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg></div>
+        <h3>Clone, click, run</h3><p><code>git clone</code> into your projects folder and the site appears by itself. <strong>Set up</strong> runs <code>composer install</code>, creates <code>.env</code>, the key and the database, and migrates or imports the SQL dump from the repository.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/></svg></div>
+        <h3>No more four terminals</h3><p>Toggle Vite, the queue worker, the scheduler, Reverb or Horizon per project. They run as services with the project's own PHP and Node versions.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5h.01"/></svg></div>
+        <h3>It says why it broke</h3><p>When a service crashes you get a notification with the reason, such as <em>port 80 is used by apache2</em> or a Docker container, and a Restart button.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z"/></svg></div>
+        <h3>Pro features, free</h3><p>Mail inbox, Redis, a log viewer with <code>laravel.log</code> levels and Xdebug are part of Herd Pro, a paid subscription. Here they are included, with phpMyAdmin, Adminer and database backups.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4"/><path d="m15.4 6.5-6.8 4"/></svg></div>
+        <h3>Share without an account</h3><p>A Cloudflare quick tunnel gives a client a public HTTPS link to your local site with no sign-up. ngrok is there too.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg></div>
+        <h3>New folders, served at once</h3><p>No reload and no confirmation: a new folder is live at <code>name.test</code> within seconds, even with the app closed. Only the PHP versions you use run.</p></div>
+    </div>
+    <div class="table-wrap" style="margin-top:30px"><table>
+      <thead><tr><th></th><th>PIPanel</th><th>Laravel Herd</th><th>Laragon</th></tr></thead>
+      <tbody>
+        <tr><td>Linux</td><td><strong>Yes</strong> (Mint, Ubuntu)</td><td>No (macOS, Windows)</td><td>No (Windows)</td></tr>
+        <tr><td>Mail inbox, Redis, log viewer, Xdebug</td><td><strong>Included</strong></td><td>Herd Pro (paid)</td><td>Mail catcher included</td></tr>
+        <tr><td>Set up a cloned project in one click</td><td><strong>Yes</strong></td><td>No</td><td>No</td></tr>
+        <tr><td>Background Vite, queue, scheduler per project</td><td><strong>Yes</strong></td><td>No</td><td>No</td></tr>
+        <tr><td>Price</td><td><strong>Free, open source</strong></td><td>Free; Pro paid yearly</td><td>Free for personal use; paid for commercial use</td></tr>
+      </tbody>
+    </table></div>
+    <p class="caption">Compared with the public feature lists of Herd and Laragon as of October 2026. Something out of date? <a href="https://github.com/pahrulirfan/PHP-DevTools/issues">Open an issue</a>.</p>
+  </div>
+</section>
 
 <!-- ============ FEATURES ============ -->
 <section id="features">

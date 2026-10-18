@@ -33,14 +33,41 @@
 
 ## Why PIPanel
 
-Laravel Herd and Laragon made local PHP development pleasant on macOS and Windows. PIPanel brings that experience
-to Linux Mint and Ubuntu, using the real Nginx, PHP-FPM and database packages instead of containers:
+Laravel Herd and Laragon made local PHP development pleasant, but **neither runs on Linux**: Herd is for macOS
+and Windows, Laragon for Windows. PIPanel brings that experience to Linux Mint and Ubuntu with the real Nginx,
+PHP-FPM and database packages, no containers, and adds things those apps leave to you.
 
-- **Drop a project in a folder and it is live** at `project-name.test` within seconds, with the PHP version
-  you choose. A project cloned from Git gets a one-click **Set up** (composer install, `.env`, key, database).
-- **No Docker, no daily `sudo`.** Everything runs as your own user through `systemctl --user`, so it keeps
-  running when you close the window.
-- **Nothing hidden.** Plain config files in your home folder, plain systemd units, plain logs.
+### What PIPanel does that others don't
+
+- **A cloned project runs after one click.** `git clone` into your projects folder: the site appears by itself
+  and shows **Set up**, which runs `composer install` with the site's PHP version, creates `.env` and `APP_KEY`,
+  creates the database named in `.env`, and **migrates or imports the `.sql` dump shipped in the repository**.
+- **Vite, queues and the scheduler without four terminals.** Toggle `npm run dev`, `queue:listen`,
+  `schedule:work`, Reverb or Horizon per project; they run as services with the project's own PHP and Node
+  versions and their output is in the log viewer.
+- **It tells you why something broke.** When a service crashes you get a desktop notification with the reason,
+  for example *"port 80 is used by apache2"* or the Docker container holding it, and a **Restart** button.
+- **Pro features, free.** The mail inbox (Mailpit), Redis, a log viewer with `laravel.log` level filtering and
+  Xdebug are part of Herd Pro, a paid subscription. Here they are included, along with phpMyAdmin and Adminer
+  that sign in by themselves, and database backup, import and clone.
+- **Share without an account.** A Cloudflare quick tunnel gives a public HTTPS link with no sign-up (ngrok is
+  there too).
+- **New folders are served at once, even with the app closed.** No reload, no confirmation: `*.test` already
+  resolves, and a folder watcher writes the Nginx config within seconds.
+- **Only what you use runs.** PHP-FPM runs for the PHP versions your sites use; tools you stop stay stopped.
+- **Nothing hidden.** No Docker and no daily `sudo`: everything runs as your user through `systemctl --user`,
+  as plain config files and plain logs. The only code that runs as root is one short script you can read.
+
+| | PIPanel | Laravel Herd | Laragon |
+|---|---|---|---|
+| Linux | **Yes** (Mint, Ubuntu) | No (macOS, Windows) | No (Windows) |
+| Mail inbox, Redis, log viewer, Xdebug | **Included** | Herd Pro (paid) | Mail catcher included |
+| Set up a cloned project in one click | **Yes** | No | No |
+| Background Vite, queue, scheduler per project | **Yes** | No | No |
+| Price | **Free, open source** | Free; Pro paid yearly | Free for personal use; paid for commercial use |
+
+<sub>Compared with the public feature lists of Herd and Laragon as of October 2026. Something out of date?
+Please open an issue.</sub>
 
 ## Features
 
