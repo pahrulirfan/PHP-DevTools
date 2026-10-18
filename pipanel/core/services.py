@@ -12,17 +12,40 @@ from .config import Config
 from .paths import Paths
 from .php import PHP
 from .runner import Result, Runner
-from .sites import Site
+from .sites import Proxy, Site
 
 NGINX, DNS, MYSQL, NGROK = "nginx", "dns", "mysql", "ngrok"
+MAIL, REDIS, CLOUDFLARED = "mail", "redis", "cloudflared"
+ADDONS = (MYSQL, MAIL, REDIS)        # optional servers: started with "Start all" unless the user turned them off
+TUNNELS = (NGROK, CLOUDFLARED)
+SITE_PREFIX = "site-"                # per-site processes: site-<site>-<process>, e.g. site-blog-vite
 SBIN_DIRS = ("/usr/sbin", "/usr/bin", "/usr/local/bin", "/sbin")
+PROCESS_TITLES = {"vite": "Vite", "queue": "Queue worker", "schedule": "Scheduler", "reverb": "Reverb",
+                  "horizon": "Horizon"}
+
+
+def site_process_service(site: str, process: str) -> str:
+    return f"{SITE_PREFIX}{site}-{process}"
+
+
+def split_site_process(name: str) -> tuple[str, str] | None:
+    """site-my-blog-vite -> ("my-blog", "vite"); None for any other service id."""
+    if not name.startswith(SITE_PREFIX) or "-" not in name[len(SITE_PREFIX):]:
+        return None
+    site, _, proc = name[len(SITE_PREFIX):].rpartition("-")
+    return (site, proc) if site else None
 
 
 def service_title(name: str, db_label: str = "MySQL") -> str:
-    """Human name of a service id (nginx, dns, php8.4, mysql, ngrok)."""
+    """Human name of a service id (nginx, dns, php8.4, mysql, ngrok, site-blog-vite, ...)."""
     if name.startswith("php"):
         return f"PHP-FPM {name[3:]}"
-    return {"nginx": "Nginx", "dns": "DNS (dnsmasq, *.test)", "mysql": db_label, "ngrok": "ngrok"}.get(name, name)
+    sp = split_site_process(name)
+    if sp:
+        return f"{sp[0]}: {PROCESS_TITLES.get(sp[1], sp[1])}"
+    return {"nginx": "Nginx", "dns": "DNS (dnsmasq, *.test)", "mysql": db_label, "ngrok": "ngrok",
+            "mail": "Mailpit", "redis": "Redis", "cloudflared": "Cloudflare Tunnel",
+            "watch": "New folder watcher"}.get(name, name)
 
 
 class ServiceError(Exception):
@@ -40,6 +63,10 @@ UNIT_PREFIX = os.environ.get("PIPANEL_UNIT_PREFIX", "pipanel")
 
 def unit_name(service: str) -> str:
     return f"{UNIT_PREFIX}-{service}.service"
+
+
+def path_unit_name(service: str) -> str:
+    return f"{UNIT_PREFIX}-{service}.path"
 
 
 def find_bin(name: str) -> str:
@@ -91,7 +118,10 @@ class Services:
         return self.runner.run(self._nginx_args() + ["-t"])
 
     # ---------- sinkronisasi config ----------
-    def sync(self, cfg: Config, sites: list[Site]) -> SyncReport:
+    def sync(self, cfg: Config, sites: list[Site], proxies: list[Proxy] = (),
+             internal_sites: list[Site] = ()) -> SyncReport:
+        """Write every config file. `internal_sites` are PIPanel's own PHP tools (Adminer), served to this
+        computer only."""
         p, rep = self.paths, SyncReport()
         p.ensure()
         for sub in ("client_body", "proxy", "fastcgi", "uwsgi", "scgi"):
@@ -107,18 +137,29 @@ class Services:
         changed = _write_if_changed(p.nginx_dir / "nginx.conf", T.render_nginx_conf(p, self.etc_nginx, cfg.http_port))
         want: set[Path] = set()
         upload = cfg.php_settings.get("upload_max_filesize", "128M").lower()
-        for s in sites:
-            https = s.https
-            if https and not (p.certs / f"{s.name}.{cfg.tld}.pem").exists():
-                https = False
-                rep.warnings.append(f"{s.name}: certificate is missing, HTTPS is temporarily disabled")
+
+        def https_for(name: str, on: bool) -> bool:
+            if on and not (p.certs / f"{name}.{cfg.tld}.pem").exists():
+                rep.warnings.append(f"{name}: certificate is missing, HTTPS is temporarily disabled")
+                return False
+            return on
+
+        internal = {s.name for s in internal_sites}
+        for s in [*sites, *internal_sites]:
             if s.php not in installed:
                 rep.warnings.append(f"{s.name}: PHP {s.php} is not installed")
             f = p.nginx_sites / f"{s.name}.conf"
             want.add(f)
             changed |= _write_if_changed(f, T.render_site(
-                p, name=s.name, docroot=s.docroot, php_version=s.php, tld=cfg.tld, https=https,
+                p, name=s.name, docroot=s.docroot, php_version=s.php, tld=cfg.tld, https=https_for(s.name, s.https),
                 upload_max=upload, nginx_version=nginx_ver, etc_nginx=self.etc_nginx,
+                http_port=cfg.http_port, https_port=cfg.https_port, local_only=s.name in internal))
+        for x in proxies:
+            f = p.nginx_sites / f"{x.name}.conf"
+            want.add(f)
+            changed |= _write_if_changed(f, T.render_proxy(
+                p, name=x.name, target=x.target, tld=cfg.tld, https=https_for(x.name, x.https),
+                local_only=x.local_only, upload_max=upload, nginx_version=nginx_ver,
                 http_port=cfg.http_port, https_port=cfg.https_port))
         for f in p.nginx_sites.glob("*.conf"):
             if f not in want:
@@ -174,6 +215,12 @@ class Services:
             changed |= _write_if_changed(p.systemd_user / unit_name(name), T.render_unit(**spec))
         return changed
 
+    def remove_unit(self, name: str) -> None:
+        f = self.paths.systemd_user / unit_name(name)
+        if f.exists():
+            f.unlink()
+            self.runner.run(["systemctl", "--user", "daemon-reload"])
+
     def write_extra_unit(self, name: str, **spec) -> bool:
         changed = _write_if_changed(self.paths.systemd_user / unit_name(name), T.render_unit(**spec))
         if changed:
@@ -207,11 +254,27 @@ class Services:
                 states[s] = "not-found"
         return states
 
-    def core_services(self, cfg: Config) -> list[str]:
-        return [NGINX, DNS, *[php_service(v) for v in self.php.installed()]]
+    def core_services(self, cfg: Config, php_versions: list[str] | None = None) -> list[str]:
+        """Nginx, DNS, and PHP-FPM for `php_versions` (default: every installed version)."""
+        versions = self.php.installed() if php_versions is None else php_versions
+        return [NGINX, DNS, *[php_service(v) for v in versions]]
 
-    def start_all(self, cfg: Config) -> list[Result]:
-        names = self.core_services(cfg)
+    def has_unit(self, s: str) -> bool:
+        return (self.paths.systemd_user / unit_name(s)).exists()
+
+    def unit_services(self) -> list[str]:
+        """Every service that has a unit file, in a stable order."""
+        head = f"{UNIT_PREFIX}-"
+        names = (f.name[len(head):-len(".service")] for f in self.paths.systemd_user.glob(f"{head}*.service"))
+        return sorted(n for n in names if not n.startswith("e2e-"))   # units of the real tests are not ours
+
+    def addons(self) -> list[str]:
+        """Installed optional servers (database, Mailpit, Redis)."""
+        return [s for s in ADDONS if self.has_unit(s)]
+
+    def start_all(self, cfg: Config, php_versions: list[str] | None = None,
+                  addons: list[str] | None = None) -> list[Result]:
+        names = self.core_services(cfg, php_versions) + (self.addons() if addons is None else addons)
         out = [self._ctl("start", *names)]
         if cfg.autostart_services:
             out.append(self._ctl("enable", *names))
@@ -236,4 +299,6 @@ class Services:
         return out
 
     def stop_all(self, cfg: Config) -> Result:
-        return self._ctl("stop", *self.core_services(cfg))
+        """Stop everything PIPanel runs: web server, PHP, databases, tools, tunnels, and site processes."""
+        names = list(dict.fromkeys(self.core_services(cfg) + self.unit_services()))
+        return self._ctl("stop", *names)

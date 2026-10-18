@@ -45,22 +45,30 @@ def parse_listeners(ss_out: str) -> dict[int, str]:
 
 class Doctor:
     def __init__(self, paths: Paths, runner: Runner, cfg: Config, services: Services, php: PHP,
-                 certs: Certs, priv: Privileged, *, resolved_dropin: Path = RESOLVED_DROPIN,
+                 certs: Certs, priv: Privileged, *, db=None, resolved_dropin: Path = RESOLVED_DROPIN,
                  sysctl_file: Path = SYSCTL_FILE, query: Callable[..., list[str]] = dns.query_a,
                  sys_resolves: Callable[[str], bool] = dns.system_resolves):
         self.paths, self.runner, self.cfg = paths, runner, cfg
         self.services, self.php, self.certs, self.priv = services, php, certs, priv
         self.resolved_dropin, self.sysctl_file = resolved_dropin, sysctl_file
         self.query, self.sys_resolves = query, sys_resolves
+        self.db = db   # the MySQL/MariaDB of the controller, for the backup tool check
 
-    def run_all(self, site_php: set[str] | None = None) -> list[Check]:
+    def run_all(self, site_php: set[str] | None = None, in_use: list[str] | None = None) -> list[Check]:
+        self.in_use = in_use
         out = [self.helper(), self.packages(), self.sysctl(), self.system_services(), self.ports(),
                self.units(), self.dns(), self.ca() if self.certs.available() else self.https_tool()]
         out += self.sockets(site_php or set())
+        if self.db is not None and self.db.initialized() and not Path(self.db.engine.dump).exists():
+            out.append(Check("dbdump", f"Database backups are unavailable: {Path(self.db.engine.dump).name} is "
+                                       "missing", WARN, fix="install_db_tools"))
         return out
 
     def helper(self) -> Check:
         if self.priv.available():
+            if self.priv.outdated():
+                return Check("helper", "Root helper is outdated", WARN,
+                             "Run ./install.sh again so new features (such as Redis) can be installed.")
             return Check("helper", "Root helper installed", OK)
         return Check("helper", "Root helper not installed", FAIL, "Run ./install.sh from the project folder.")
 
@@ -88,7 +96,7 @@ class Doctor:
 
     def system_services(self) -> Check:
         bad = []
-        for u in ["nginx", "mysql", *[f"php{v}-fpm" for v in self.php.installed()]]:
+        for u in ["nginx", "mysql", "mariadb", "redis-server", *[f"php{v}-fpm" for v in self.php.installed()]]:
             if self.runner.run(["systemctl", "is-active", f"{u}.service"]).out.strip() == "active":
                 bad.append(u)
         if bad:
@@ -118,7 +126,7 @@ class Doctor:
                      status, "; ".join(notes))
 
     def units(self) -> Check:
-        names = self.services.core_services(self.cfg)
+        names = self.services.core_services(self.cfg, getattr(self, "in_use", None))
         st = self.services.status(names)
         down = [n for n, s in st.items() if s != "active"]
         if down:
