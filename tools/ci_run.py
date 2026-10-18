@@ -26,7 +26,9 @@ def main(argv: list[str]) -> int:
         lines.append(line.rstrip("\n"))
     code = p.wait()
     if code != 0:
-        tail = "\n".join(lines[-30:]).replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+        fails = [l for l in lines if l.startswith(("FAIL", "Traceback", "E   "))][:25]
+        picked = fails + ["..."] + lines[-15:] if fails else lines[-30:]
+        tail = "\n".join(picked).replace("%", "%25").replace("\r", "").replace("\n", "%0A")
         print(f"::error title={title} (exit {code})::{tail}", flush=True)
     return code
 
