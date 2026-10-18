@@ -4,11 +4,13 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QButtonGroup, QFileDialog, QRadioButton, QSpinBox
 
-from ...core import autostart
+from ... import __version__
+from ...core import actions, autostart
 from ...core.controller import ControllerError
 from ..widgets import _gone, Card, Toggle, button, hbox, label
 from .base import Page
 
+DOCS_URL = "https://pahrulirfan.github.io/PHP-DevTools/"
 THEME_LABELS = [("system", "Follow system"), ("light", "Light"), ("dark", "Dark")]
 
 
@@ -68,6 +70,17 @@ class SettingsPage(Page):
         sysc.body.addWidget(self.sys_label)
         sysc.body.addLayout(hbox(button("Run first-time setup", "primary", "rocket", self.win.run_setup), None))
         self.body.addWidget(sysc)
+
+        about = Card("About PIPanel")
+        about.body.addWidget(label(
+            f"PIPanel {__version__}, by Pahrul Irfan, lecturer and researcher in Informatics, Faculty of Engineering, "
+            "Universitas Mataram. Much of it was written with the help of Claude (Anthropic's AI assistant, Opus "
+            "model). Free and open source; if it saves you time, a donation helps keep it maintained.",
+            "muted", wrap=True))
+        about.body.addLayout(hbox(button("About", None, "external", lambda: actions.open_url(DOCS_URL + "about.html")),
+                                  button("Donate", None, "heart", lambda: actions.open_url(DOCS_URL + "donate.html")),
+                                  None))
+        self.body.addWidget(about)
 
     def refresh(self) -> None:
         ctl = self.ctl
