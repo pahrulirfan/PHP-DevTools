@@ -1,0 +1,128 @@
+name: Release
+
+# A tag such as v0.2.0 builds every package, tests each one, and publishes a GitHub release with them.
+# Run it by hand (Actions -> Release -> Run workflow) to build the packages without publishing.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number for the packages (no release is published)"
+        default: "0.0.0-dev"
+
+env:
+  VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+
+jobs:
+  deb:
+    name: Linux .deb (Ubuntu ${{ matrix.ubuntu }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ubuntu: ["24.04", "22.04"]   # Linux Mint 22 / 21
+    container: ubuntu:${{ matrix.ubuntu }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: packaging/build-deb.sh "${VERSION#v}" dist
+      - name: Install the package and start the app in a virtual display
+        run: |
+          apt-get install -y -qq ./dist/*.deb xvfb xauth >/dev/null
+          pipanel --help
+          HOME=$(mktemp -d) xvfb-run -a env QT_QPA_PLATFORM=xcb /opt/pipanel/venv/bin/python -m pipanel _smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.ubuntu }}
+          path: dist/*.deb
+
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        shell: pwsh
+        run: |
+          python -m pip install . pyinstaller
+          pyinstaller --noconfirm packaging/pyinstaller/pipanel.spec
+      - name: Start the packaged app
+        shell: pwsh
+        run: |
+          $env:PIPANEL_HOME = Join-Path $env:RUNNER_TEMP "pipanel-smoke"
+          dist\PIPanel\pipanel-cli.exe _smoke
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dist\PIPanel\pipanel-cli.exe --help
+      - name: Installer and portable zip
+        shell: pwsh
+        run: |
+          $v = "$env:VERSION".TrimStart("v")
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/DAppVersion=$v" "/DSourceDir=$PWD\dist\PIPanel" "/DOutputDir=$PWD\dist" packaging\windows\pipanel.iss
+          Compress-Archive -Path dist\PIPanel -DestinationPath "dist\PIPanel-$v-windows-x64-portable.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/*-setup.exe
+            dist/*-portable.zip
+
+  macos:
+    name: macOS app (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.arch == 'intel' }}   # Intel runners are being retired
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            arch: apple-silicon
+          - os: macos-15-intel
+            arch: intel
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          python -m pip install . pyinstaller
+          PIPANEL_VERSION="${VERSION#v}" pyinstaller --noconfirm packaging/pyinstaller/pipanel.spec
+      - name: Start the packaged app
+        run: |
+          PIPANEL_HOME="$RUNNER_TEMP/pipanel-smoke" dist/PIPanel.app/Contents/MacOS/PIPanel _smoke
+      - name: Disk image
+        run: |
+          v="${VERSION#v}"
+          mkdir -p dmg && cp -R dist/PIPanel.app dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname "PIPanel $v" -srcfolder dmg -ov -format UDZO "dist/PIPanel-$v-macos-${{ matrix.arch }}.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: dist/*.dmg
+
+  publish:
+    name: GitHub release
+    if: github.event_name == 'push' && always() && needs.deb.result == 'success' && needs.windows.result == 'success'
+    needs: [deb, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la packages
+          gh release create "$GITHUB_REF_NAME" packages/* --repo "$GITHUB_REPOSITORY" --title "PIPanel ${GITHUB_REF_NAME#v}" --generate-notes
