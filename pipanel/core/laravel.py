@@ -87,11 +87,21 @@ class LaravelTools:
         argv, env = self.php.cli_cmd(php_version, args)
         return self.runner.run(argv, cwd=str(project), env=env, timeout=timeout)
 
-    def composer(self, project: Path, php_version: str, *args: str) -> Result:
+    def composer(self, project: Path, php_version: str, *args: str, progress_flag: bool = True) -> Result:
         phar = self.paths.bin / "composer.phar"
         if not phar.exists():
             raise LaravelError("Composer is not installed (PHP page -> Install Composer)")
-        return self._run(project, php_version, [str(phar), *args, "--no-interaction", "--no-progress"])
+        extra = ["--no-interaction"] + (["--no-progress"] if progress_flag else [])
+        return self._run(project, php_version, [str(phar), *args, *extra])
+
+    def outdated(self, project: Path, php_version: str) -> list[tuple[str, Result]]:
+        """Direct dependencies with a newer version."""
+        return [("composer outdated --direct",
+                 self.composer(project, php_version, "outdated", "--direct", progress_flag=False))]
+
+    def audit(self, project: Path, php_version: str) -> list[tuple[str, Result]]:
+        """Known security advisories for the installed packages."""
+        return [("composer audit", self.composer(project, php_version, "audit", progress_flag=False))]
 
     def artisan(self, project: Path, php_version: str, *args: str) -> Result:
         return self._run(project, php_version, ["artisan", *args, "--no-interaction"])

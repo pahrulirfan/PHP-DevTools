@@ -52,6 +52,61 @@ def set_env(project: Path, values: dict[str, str]) -> None:
     env.write_text(text)
 
 
+def dotenv_get(project: Path, key: str) -> str | None:
+    """Value of `key` in the project's .env (quotes removed), or None when it is not set."""
+    try:
+        text = (project / ".env").read_text()
+    except OSError:
+        return None
+    m = re.search(rf"^{re.escape(key)}=(.*)$", text, re.M)
+    if not m:
+        return None
+    v = m.group(1).strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+        v = v[1:-1]
+    return v
+
+
+# What a Laravel project cloned from Git usually lacks (none of it is committed)
+NEEDS = {
+    "vendor": "the vendor folder is missing (composer install was not run)",
+    "env": "there is no .env file",
+    "key": "APP_KEY in .env is empty",
+}
+_SKIP_DIRS = {"vendor", "node_modules", ".git", "storage"}
+
+
+def setup_needs(project: Path) -> list[str]:
+    """Keys of NEEDS that apply to a Laravel project, in the order they are fixed."""
+    out = []
+    if (project / "composer.json").is_file() and not (project / "vendor" / "autoload.php").is_file():
+        out.append("vendor")
+    if not (project / ".env").is_file():
+        out.append("env")
+    elif not dotenv_get(project, "APP_KEY"):
+        out.append("key")
+    return out
+
+
+def sql_dumps(project: Path, limit: int = 20) -> list[Path]:
+    """SQL dumps shipped in the repository (.sql / .sql.gz), newest first."""
+    found: list[Path] = []
+
+    def walk(d: Path, depth: int) -> None:
+        try:
+            entries = list(d.iterdir())
+        except OSError:
+            return
+        for e in entries:
+            if e.is_dir() and not e.is_symlink() and e.name not in _SKIP_DIRS and depth < 4:
+                walk(e, depth + 1)
+            elif e.is_file() and (e.name.endswith(".sql") or e.name.endswith(".sql.gz")):
+                found.append(e)
+
+    walk(project, 0)
+    return sorted(found, key=lambda f: f.stat().st_mtime, reverse=True)[:limit]
+
+
 def mysql_env(port: int, database: str, password: str) -> dict[str, str]:
     return {"DB_CONNECTION": "mysql", "DB_HOST": "127.0.0.1", "DB_PORT": str(port),
             "DB_DATABASE": database, "DB_USERNAME": "root", "DB_PASSWORD": password}
