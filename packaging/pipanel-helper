@@ -16,6 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+HELPER_VERSION = 2   # PIPanel reads this line to tell whether the installed helper is current
 DRY = os.environ.get("PIPANEL_HELPER_DRYRUN") == "1"
 ROOT = Path(os.environ.get("PIPANEL_HELPER_ROOT", "/"))
 
@@ -26,9 +27,10 @@ BASE_PKGS = ["nginx", "dnsmasq-base", "libnss3-tools", "mkcert", "unzip", "curl"
 # database engines: apt packages and the AppArmor profile that would confine the server binary
 DB_ENGINES = {
     "mysql": {"pkgs": ["mysql-server-core-8.0", "mysql-client-core-8.0"], "profile": "usr.sbin.mysqld"},
-    "mariadb": {"pkgs": ["mariadb-server-core", "mariadb-client-core"], "profile": "usr.sbin.mariadbd"},
+    # mariadb-client: mariadb-dump for backups (MySQL's client-core package already has mysqldump)
+    "mariadb": {"pkgs": ["mariadb-server-core", "mariadb-client-core", "mariadb-client"], "profile": "usr.sbin.mariadbd"},
 }
-SYSTEM_SERVICES = ["nginx", "mysql", "mysqld", "mariadb"]
+SYSTEM_SERVICES = ["nginx", "mysql", "mysqld", "mariadb", "redis-server"]
 DNS_PORT = 5354
 TLD = "test"
 
@@ -156,6 +158,13 @@ def cmd_install_database(args):
         run(["apparmor_parser", "-r", f"/etc/apparmor.d/{profile}"], check=False)
 
 
+def cmd_install_redis(args):
+    if args:
+        die("usage: install-redis")
+    apt_install(["redis-server"])
+    disable_system_services()   # the package starts its own server on 6379; PIPanel runs one as the user
+
+
 def cmd_trust_ca(args):
     user = target_user()
     if len(args) != 1:
@@ -184,7 +193,8 @@ def cmd_disable_system_services(args):
 
 COMMANDS = {
     "setup": cmd_setup, "install-php": cmd_install_php, "remove-php": cmd_remove_php,
-    "install-ext": cmd_install_ext, "install-database": cmd_install_database, "trust-ca": cmd_trust_ca,
+    "install-ext": cmd_install_ext, "install-database": cmd_install_database, "install-redis": cmd_install_redis,
+    "trust-ca": cmd_trust_ca,
     "untrust-ca": cmd_untrust_ca, "disable-system-services": cmd_disable_system_services,
 }
 

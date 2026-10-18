@@ -117,3 +117,17 @@ def test_setup_does_not_reinstall_when_the_files_exist(tmp_path):
     p, cmds = run_helper(tmp_path, "setup", "8.3")
     assert p.returncode == 0, p.stderr
     assert not [c for c in argvs(cmds) if "--reinstall" in c]
+
+
+def test_install_redis_disables_the_system_server(tmp_path):
+    p, cmds = run_helper(tmp_path, "install-redis", uid=1000)
+    assert p.returncode == 0
+    assert ["apt-get", "install", "-y", "--no-install-recommends", "redis-server"] in argvs(cmds)
+    assert ["systemctl", "disable", "--now", "redis-server.service"] in argvs(cmds)
+    assert run_helper(tmp_path, "install-redis", "extra", uid=1000)[0].returncode == 2
+
+
+def test_mariadb_install_includes_the_dump_tool(tmp_path):
+    p, cmds = run_helper(tmp_path, "install-database", "mariadb", uid=1000)
+    inst = [c for c in argvs(cmds) if c[:2] == ["apt-get", "install"]][0]
+    assert "mariadb-client" in inst
