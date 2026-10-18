@@ -26,7 +26,7 @@ def test_initialize_command_and_failure(my, runner):
         my.initialize()
 
 
-@pytest.mark.parametrize("bad", ["a b", "a;drop", "a`b", "", "x" * 65, "a-b"])
+@pytest.mark.parametrize("bad", ["a b", "a;drop", "a`b", "", "x" * 65, "a.b"])   # "a-b" is a valid database name
 def test_ident_rejects(bad):
     with pytest.raises(MySQLError):
         ident(bad)

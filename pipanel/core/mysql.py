@@ -1,7 +1,11 @@
 """User-owned MySQL 8 or MariaDB: init, config, and database/user management through the command-line client."""
 from __future__ import annotations
 
+import gzip
 import re
+import shutil
+import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +15,7 @@ from .projects import dotenv_value
 from .runner import Result, Runner
 
 _IDENT = re.compile(r"^[A-Za-z0-9_]{1,64}$")
+_DB_NAME = re.compile(r"^[A-Za-z0-9_$-]{1,64}$")   # database names may contain '-' (quoted with backticks)
 _HOST = re.compile(r"^(localhost|%|[A-Za-z0-9_.:-]{1,60})$")
 SYSTEM_DBS = {"information_schema", "mysql", "performance_schema", "sys"}
 
@@ -28,20 +33,22 @@ class Engine:
     init: str | None    # separate init program (MariaDB), or None when the server initializes itself (MySQL)
     packages: tuple[str, ...]
     apparmor_profile: str
+    dump: str = ""      # mysqldump / mariadb-dump (backups)
 
 
 ENGINES = {
     "mysql": Engine("mysql", "MySQL 8", "/usr/sbin/mysqld", "mysql", None,
-                    ("mysql-server-core-8.0", "mysql-client-core-8.0"), "usr.sbin.mysqld"),
+                    ("mysql-server-core-8.0", "mysql-client-core-8.0"), "usr.sbin.mysqld", "/usr/bin/mysqldump"),
     "mariadb": Engine("mariadb", "MariaDB", "/usr/sbin/mariadbd", "mariadb", "/usr/bin/mariadb-install-db",
-                      ("mariadb-server-core", "mariadb-client-core"), "usr.sbin.mariadbd"),
+                      ("mariadb-server-core", "mariadb-client-core", "mariadb-client"), "usr.sbin.mariadbd",
+                      "/usr/bin/mariadb-dump"),
 }
 # accounts created by the servers themselves; never shown or touched
 INTERNAL_USERS = ("mysql.sys", "mysql.session", "mysql.infoschema", "mariadb.sys", "debian-sys-maint", "mysql")
 
 
 def ident(name: str) -> str:
-    if not _IDENT.match(name):
+    if not _DB_NAME.match(name):
         raise MySQLError(f"invalid name (letters, digits, _ ; max 64): {name!r}")
     return f"`{name}`"
 
@@ -153,6 +160,19 @@ class MySQL:
     def databases(self) -> list[str]:
         return [d for d in self._exec("SHOW DATABASES").split() if d not in SYSTEM_DBS]
 
+    def database_stats(self) -> list[tuple[str, int, int]]:
+        """(name, number of tables, size in bytes) of every user database."""
+        rows = self._exec(
+            "SELECT s.schema_name, COUNT(t.table_name), COALESCE(SUM(t.data_length + t.index_length), 0) "
+            "FROM information_schema.schemata s LEFT JOIN information_schema.tables t "
+            "ON t.table_schema = s.schema_name GROUP BY s.schema_name ORDER BY s.schema_name")
+        out = []
+        for line in rows.splitlines():
+            parts = line.split("\t")
+            if len(parts) == 3 and parts[0] not in SYSTEM_DBS:
+                out.append((parts[0], int(parts[1] or 0), int(float(parts[2] or 0))))
+        return out
+
     def create_database(self, name: str) -> None:
         self._exec(f"CREATE DATABASE {ident(name)} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
 
@@ -165,6 +185,27 @@ class MySQL:
         names = ",".join(sql_str(u) for u in INTERNAL_USERS)
         rows = self._exec(f"SELECT user, host FROM mysql.user WHERE user NOT IN ({names})")
         return [tuple(l.split("\t")) for l in rows.splitlines() if "\t" in l]  # type: ignore[misc]
+
+    def users_access(self) -> list[tuple[str, str, str]]:
+        """(user, host, databases it may use: "*" for all) of every account except the internal ones."""
+        names = ",".join(sql_str(u) for u in INTERNAL_USERS)
+        rows = self._exec(
+            "SELECT u.user, u.host, IF(u.Select_priv = 'Y', '*', COALESCE(GROUP_CONCAT(DISTINCT p.table_schema "
+            "ORDER BY p.table_schema SEPARATOR ', '), '')) FROM mysql.user u "
+            "LEFT JOIN information_schema.schema_privileges p "
+            "ON p.grantee = CONCAT(CHAR(39), u.user, CHAR(39), '@', CHAR(39), u.host, CHAR(39)) "
+            f"WHERE u.user NOT IN ({names}) GROUP BY u.user, u.host, u.Select_priv ORDER BY u.user, u.host")
+        out = []
+        for line in rows.splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                out.append((parts[0], parts[1], parts[2] if len(parts) > 2 else ""))
+        return out
+
+    def set_user_password(self, user: str, host: str, password: str) -> None:
+        if user == "root":
+            raise MySQLError("change the root password in the Root password card")
+        self._exec(f"ALTER USER {sql_str(user)}@{host_str(host)} IDENTIFIED BY {sql_str(password)}")
 
     def create_user(self, user: str, password: str, *, host: str = "localhost",
                     database: str | None = None) -> None:
@@ -209,6 +250,70 @@ class MySQL:
         except OSError:
             return ""
         return m.group(1).replace('\\"', '"').replace("\\\\", "\\") if m else ""
+
+    # --- backups ---
+    @property
+    def backups(self) -> Path:
+        return self.paths.data / "backups"
+
+    def default_backup_path(self, database: str) -> Path:
+        return self.backups / f"{database}-{time.strftime('%Y%m%d-%H%M%S')}.sql.gz"
+
+    def dump(self, database: str, dest: Path) -> Path:
+        """Write a backup of one database: plain SQL, or gzip when `dest` ends in .gz."""
+        ident(database)
+        if not Path(self.engine.dump).exists():
+            raise MySQLError(f"{Path(self.engine.dump).name} is not installed. Services -> Run diagnostics -> Fix "
+                             "adds it (run ./install.sh again first if the Doctor says the root helper is outdated).")
+        dest = Path(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        sql = dest.with_name(dest.name[:-3]) if dest.name.endswith(".gz") else dest
+        r = self.runner.run([self.engine.dump, f"--defaults-extra-file={self.client_cnf}", "--single-transaction",
+                             "--routines", "--triggers", "--events", f"--result-file={sql}", database], timeout=3600)
+        if not r.ok:
+            sql.unlink(missing_ok=True)
+            raise MySQLError(f"backup failed: {r.text}")
+        if sql != dest:
+            with open(sql, "rb") as src, gzip.open(dest, "wb") as out:
+                shutil.copyfileobj(src, out)
+            sql.unlink()
+        return dest
+
+    def import_file(self, database: str, src: Path) -> None:
+        """Load a .sql or .sql.gz file into a database (created when it does not exist yet)."""
+        ident(database)
+        src = Path(src)
+        if not src.is_file():
+            raise MySQLError(f"file not found: {src}")
+        if database not in self.databases():
+            self.create_database(database)
+        tmp = None
+        try:
+            if src.name.endswith(".gz"):
+                self.backups.mkdir(parents=True, exist_ok=True)   # on disk: /run and /tmp may live in memory
+                fd, tmp = tempfile.mkstemp(suffix=".sql", prefix=".import-", dir=self.backups)
+                with gzip.open(src, "rb") as zin, open(fd, "wb") as out:
+                    shutil.copyfileobj(zin, out)
+            r = self.runner.run([self.client, f"--defaults-extra-file={self.client_cnf}", database],
+                                stdin_file=tmp or str(src), timeout=3600)
+        finally:
+            if tmp:
+                Path(tmp).unlink(missing_ok=True)
+        if not r.ok:
+            raise MySQLError(f"import failed: {r.text}")
+
+    def clone(self, source: str, target: str) -> None:
+        """Copy a database (for example blog -> blog_test)."""
+        ident(source), ident(target)
+        if target in self.databases():
+            raise MySQLError(f"database {target} already exists")
+        self.backups.mkdir(parents=True, exist_ok=True)
+        tmp = Path(tempfile.mkdtemp(prefix=".clone-", dir=self.backups)) / f"{source}.sql"
+        try:
+            self.dump(source, tmp)
+            self.import_file(target, tmp)
+        finally:
+            shutil.rmtree(tmp.parent, ignore_errors=True)
 
     def env_snippet(self, database: str = "laravel") -> str:
         return (f"DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT={self.port}\n"
