@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About PIPanel</title>
+<meta name="description" content="Who makes PIPanel and how it is built: by Pahrul Irfan, Informatics, Faculty of Engineering, Universitas Mataram, with the help of Claude.">
+<meta name="theme-color" content="#7c3aed">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="preload" href="assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/site.css">
+<meta property="og:title" content="About PIPanel">
+<meta property="og:description" content="Who makes PIPanel and how it is built.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://pahrulirfan.github.io/PHP-DevTools/assets/img/light-sites.png">
+<script>/* avoid a flash of the wrong theme */ try { var t = localStorage.getItem("pipanel-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/logo.svg" alt="" width="30" height="30">PIPanel</a>
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="./#why">Why PIPanel</a>
+      <a href="./#features">Features</a>
+      <a href="./#install">Install</a>
+      <a href="./#sites">Guide</a>
+      <a href="./#faq">FAQ</a>
+      <a href="about.html" aria-current="page">About</a>
+      <a href="https://github.com/pahrulirfan/PHP-DevTools">GitHub</a>
+      <a href="donate.html">Donate</a>
+    </nav>
+    <button class="icon-btn" id="theme" type="button" aria-label="Switch theme" title="Switch theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
+    </button>
+    <button class="icon-btn menu-btn" id="menu" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+<div class="hero">
+  <div class="wrap">
+    <span class="eyebrow">About</span>
+    <h1>Who makes <em>PIPanel</em></h1>
+    <p class="lead">A local PHP development app for Linux, Windows and macOS, made at Universitas Mataram by a lecturer and researcher in Informatics.</p>
+  </div>
+</div>
+
+<section id="author">
+  <div class="wrap">
+    <div class="kicker">The author</div>
+    <h2>Pahrul Irfan</h2>
+    <p class="sub">Lecturer and researcher in Informatics at the Faculty of Engineering, Universitas Mataram (Unram), Lombok, Indonesia.</p>
+    <p>Pahrul Irfan designed PIPanel, decides what goes into it, and uses it every day on Linux Mint. Questions, bug reports and ideas are welcome on <a href="https://github.com/pahrulirfan/PHP-DevTools/issues">GitHub</a>.</p>
+  </div>
+</section>
+
+<section id="how-built">
+  <div class="wrap">
+    <div class="kicker">How it is built</div>
+    <h2>Written with the help of Claude</h2>
+    <p class="sub">Much of PIPanel's code, tests and documentation was written with Claude, the AI assistant made by Anthropic, using its Opus model in Claude Code.</p>
+    <div class="grid">
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div>
+        <h3>The author decides</h3><p>Which features PIPanel has, how it should behave, and what is good enough to release are decided by Pahrul Irfan, who reviews the changes and tries them on real machines.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-5 4 5 4"/><path d="m16 8 5 4-5 4"/><path d="m14 5-4 14"/></svg></div>
+        <h3>Claude writes the code</h3><p>Claude (Opus) wrote much of the code, the tests and these pages from those decisions, and worked through the failures found on Linux, Windows and macOS.</p></div>
+      <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></div>
+        <h3>Tests check both</h3><p>More than 400 automated tests, and scripts that start the real Nginx, PHP and databases, run on GitHub for all three systems on every change, so nothing is taken on trust.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="project">
+  <div class="wrap">
+    <div class="kicker">The project</div>
+    <h2>Free and open source</h2>
+    <p>PIPanel is free for personal and commercial work. The source, the design notes (<a href="https://github.com/pahrulirfan/PHP-DevTools/blob/main/PLAN.md">PLAN.md</a>) and every release are on <a href="https://github.com/pahrulirfan/PHP-DevTools">GitHub</a>. The interface uses the Inter font, under the SIL Open Font License.</p>
+    <p>If PIPanel saves you time, you can <a href="donate.html">support it with a donation</a>.</p>
+    <div class="cta" style="justify-content:flex-start;margin-top:22px">
+      <a class="btn primary" href="./#install">Get PIPanel</a>
+      <a class="btn" href="donate.html">Donate</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>PIPanel, by Pahrul Irfan.</span>
+    <span><a href="https://github.com/pahrulirfan/PHP-DevTools">Source on GitHub</a> · <a href="about.html">About</a> · <a href="donate.html">Donate</a> · Inter font under the SIL Open Font License</span>
+  </div>
+</footer>
+
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>

@@ -21,7 +21,9 @@
   <a href="https://pahrulirfan.github.io/PHP-DevTools/"><b>Documentation</b></a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#features">Features</a> ·
-  <a href="#faq">FAQ</a>
+  <a href="#faq">FAQ</a> ·
+  <a href="#about">About</a> ·
+  <a href="https://pahrulirfan.github.io/PHP-DevTools/donate.html">Donate</a>
 </p>
 
 <p align="center">
@@ -317,6 +319,21 @@ Cloudflare quick tunnels are tested end to end; the ngrok failure paths (no toke
 against ngrok's servers, a successful ngrok tunnel needs a real account. The packages are not code-signed.
 PostgreSQL is not supported yet.
 
-## Credits
+## Support PIPanel
 
-Built by Pahrul Irfan. UI font [Inter](https://rsms.me/inter/) (SIL Open Font License).
+PIPanel is free and open source, for personal and commercial work. If it saves you time, you can support its
+development with a donation through [PayPal](https://paypal.me/pahrulirfan); it helps pay for testing on real
+Linux, Windows and macOS machines and for the features still to come. Starring the repository and reporting bugs
+help just as much. More on the [donation page](https://pahrulirfan.github.io/PHP-DevTools/donate.html).
+
+## About
+
+PIPanel is made by **Pahrul Irfan**, lecturer and researcher in Informatics at the Faculty of Engineering,
+Universitas Mataram (Unram), Indonesia.
+
+Much of the code, the tests and the documentation was written with the help of **Claude**, Anthropic's AI
+assistant, using its **Opus** model in Claude Code. The author decides what PIPanel does, reviews the changes and
+tries them on real machines; the automated tests and real-service checks run on GitHub for Linux, Windows and
+macOS on every change. More on the [About page](https://pahrulirfan.github.io/PHP-DevTools/about.html).
+
+UI font [Inter](https://rsms.me/inter/) (SIL Open Font License).

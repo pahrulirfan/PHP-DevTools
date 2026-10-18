@@ -55,6 +55,7 @@ a:hover { text-decoration: underline; }
 .nav { display: flex; gap: 22px; margin-left: auto; align-items: center; }
 .nav a { color: var(--muted); font-size: 14.5px; }
 .nav a:hover { color: var(--text); text-decoration: none; }
+.nav a[aria-current="page"] { color: var(--text); font-weight: 600; }
 .icon-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); width: 38px; height: 38px;
   border-radius: 10px; cursor: pointer; display: grid; place-items: center; }
 .icon-btn:hover { background: var(--surface-2); color: var(--text); }
