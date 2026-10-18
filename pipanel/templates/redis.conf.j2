@@ -4,8 +4,8 @@ bind 127.0.0.1
 protected-mode yes
 daemonize no
 supervised no
-pidfile "{{ run_dir|p }}/redis.pid"
+pidfile "{{ run_dir }}/redis.pid"
 logfile ""
-dir "{{ data_dir|p }}"
+dir "{{ data_dir }}"
 dbfilename dump.rdb
 save 3600 1 300 100 60 10000

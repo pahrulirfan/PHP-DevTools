@@ -11,6 +11,18 @@ SERVER = "/usr/bin/redis-server"
 PORT = 6379
 
 
+def cygwin_path(path) -> str:
+    """Redis for Windows is a Cygwin/MSYS2 build: it reads /cygdrive/c/Users/... instead of C:\\Users\\..."""
+    from . import platform
+    if not platform.is_windows():
+        return str(path)
+    import os
+    p = os.path.realpath(str(path)) if os.name == "nt" else str(path)
+    drive, rest = os.path.splitdrive(p) if os.name == "nt" else (p[:2] if p[1:2] == ":" else "", p[2:] if p[1:2] == ":" else p)
+    rest = rest.replace("\\", "/")
+    return f"/cygdrive/{drive[0].lower()}{rest}" if drive else rest
+
+
 class Redis:
     def __init__(self, paths: Paths, *, server: str = SERVER, port: int = PORT):
         self.paths, self.server, self.port = paths, server, port
@@ -28,7 +40,7 @@ class Redis:
         return self.paths.data / "redis"
 
     def write_config(self) -> bool:
-        text = T.render_redis_conf(self.paths, port=self.port)
+        text = T.render_redis_conf(self.paths, port=self.port, path=cygwin_path)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         if self.conf.exists() and self.conf.read_text() == text:
             return False
@@ -37,7 +49,7 @@ class Redis:
         return True
 
     def unit_spec(self) -> dict:
-        return dict(description="PIPanel: Redis", argv=[str(self.server), str(self.conf)],
+        return dict(description="PIPanel: Redis", argv=[str(self.server), cygwin_path(self.conf)],
                     dirs=[str(self.paths.run), str(self.data_dir)])
 
     def ping(self, timeout: float = 1.0) -> bool:

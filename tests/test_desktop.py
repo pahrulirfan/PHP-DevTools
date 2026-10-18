@@ -278,3 +278,11 @@ def test_windows_paths(windows, tmp_path):
 
 def test_platform_names(windows):
     assert platform.exe("nginx") == "nginx.exe" and platform.exe("php.exe") == "php.exe"
+
+
+def test_redis_paths_on_windows(windows, paths):
+    from pipanel.core.redis import Redis, cygwin_path
+    assert cygwin_path("C:\\Users\\Me\\AppData\\Local\\PIPanel\\config\\redis\\redis.conf") == \
+        "/cygdrive/c/Users/Me/AppData/Local/PIPanel/config/redis/redis.conf"
+    r = Redis(paths, server="C:/stack/redis/redis-server.exe")
+    assert r.unit_spec()["argv"][1].endswith("/config/redis/redis.conf")

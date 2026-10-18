@@ -39,7 +39,9 @@ def check(name, cond, detail=""):
     print(line, flush=True)
     results.append(line)
     if not cond and os.environ.get("GITHUB_ACTIONS"):
-        print(f"::error title=e2e: {name}::{str(detail)[:900]}", flush=True)
+        title = name.replace(":", " -").replace(",", " ")   # ':' and ',' are not allowed in an annotation title
+        msg = str(detail)[:900].replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+        print(f"::error title=e2e - {title}::{msg}", flush=True)
 
 
 def wait_for(cond, timeout=30.0):

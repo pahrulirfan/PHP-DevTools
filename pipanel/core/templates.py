@@ -152,5 +152,5 @@ def render_mysql_cnf(*, datadir, socket, pid, log, port: int = 3306, engine: str
                    basedir=basedir, linux=platform.current() == platform.LINUX, unix=not platform.is_windows())
 
 
-def render_redis_conf(paths: Paths, *, port: int = 6379) -> str:
-    return _render("redis.conf.j2", port=port, run_dir=paths.run, data_dir=paths.data / "redis")
+def render_redis_conf(paths: Paths, *, port: int = 6379, path=str) -> str:
+    return _render("redis.conf.j2", port=port, run_dir=path(paths.run), data_dir=path(paths.data / "redis"))
