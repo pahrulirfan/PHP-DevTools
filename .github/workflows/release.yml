@@ -5,6 +5,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
+    branches: [cross-platform]   # temporary: build the packages while the ports are tested
   workflow_dispatch:
     inputs:
       version:
@@ -12,7 +13,7 @@ on:
         default: "0.0.0-dev"
 
 env:
-  VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+  VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '0.0.0-dev' }}
 
 jobs:
   deb:
@@ -110,7 +111,7 @@ jobs:
 
   publish:
     name: GitHub release
-    if: github.event_name == 'push' && always() && needs.deb.result == 'success' && needs.windows.result == 'success'
+    if: startsWith(github.ref, 'refs/tags/') && always() && needs.deb.result == 'success' && needs.windows.result == 'success'
     needs: [deb, windows, macos]
     runs-on: ubuntu-latest
     permissions:
