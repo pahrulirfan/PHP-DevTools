@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import platform
 from .laravel import declared_packages
 from .node import Node
 from .php import PHP
@@ -64,10 +65,10 @@ def unit_spec(site: Site, key: str, php: PHP, node: Node) -> dict:
     if key == "vite":
         if not node.available():
             raise ProcessError("Node.js is managed with fnm, which is not installed yet (Node page -> Install fnm)")
-        using = "" if node_version_file(site.path) else " --using default"   # fnm reads .nvmrc / .node-version
-        return dict(description=description, workdir=site.path, env={"FNM_DIR": str(node.fnm_dir)},
-                    exec_start=f"{node.fnm_bin} exec{using} npm run dev")
+        using = [] if node_version_file(site.path) else ["--using", "default"]   # fnm reads .nvmrc / .node-version
+        return dict(description=description, workdir=str(site.path), env={"FNM_DIR": str(node.fnm_dir)},
+                    argv=[str(node.fnm_bin), "exec", *using, "npm.cmd" if platform.is_windows() else "npm", "run", "dev"])
     if key in ARTISAN:
         argv, env = php.cli_cmd(site.php, ["artisan", *ARTISAN[key]])
-        return dict(description=description, workdir=site.path, env=env, exec_start=" ".join(argv))
+        return dict(description=description, workdir=str(site.path), env=env, argv=argv)
     raise ProcessError(f"unknown process: {key}")

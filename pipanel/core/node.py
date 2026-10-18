@@ -21,6 +21,11 @@ class NodeError(Exception):
 
 
 def fnm_asset(machine: str | None = None) -> str:
+    from . import platform as plat
+    if plat.is_windows():
+        return "fnm-windows"
+    if plat.is_macos():
+        return "fnm-macos"
     m = (machine or platform.machine()).lower()
     if m in ("aarch64", "arm64"):
         return "fnm-arm64"
@@ -58,7 +63,8 @@ class Node:
 
     @property
     def fnm_bin(self) -> Path:
-        return self.paths.bin / "fnm"
+        from . import platform as plat
+        return self.paths.bin / plat.exe("fnm")
 
     @property
     def fnm_dir(self) -> Path:
@@ -69,11 +75,13 @@ class Node:
 
     def install_fnm(self, fetch: Callable[[str], bytes], machine: str | None = None) -> Path:
         data = fetch(FNM_URL.format(asset=fnm_asset(machine)))
+        name = self.fnm_bin.name
         with zipfile.ZipFile(io.BytesIO(data)) as z:
-            if "fnm" not in z.namelist():
-                raise NodeError("fnm archive does not contain the 'fnm' binary")
+            found = next((n for n in z.namelist() if Path(n).name == name), None)
+            if found is None:
+                raise NodeError(f"fnm archive does not contain the '{name}' binary")
             self.paths.bin.mkdir(parents=True, exist_ok=True)
-            self.fnm_bin.write_bytes(z.read("fnm"))
+            self.fnm_bin.write_bytes(z.read(found))
         self.fnm_bin.chmod(0o755)
         return self.fnm_bin
 
@@ -106,6 +114,11 @@ class ShellIntegration:
         self.paths, self.home, self.node = paths, home, node
 
     def _block(self, shell: str | None) -> str:
+        if shell == "powershell":
+            return "\n".join([BEGIN, f'$env:Path = "{self.paths.bin};" + $env:Path',
+                              f'$env:FNM_DIR = "{self.node.fnm_dir}"',
+                              f'if (Test-Path "{self.node.fnm_bin}") {{ & "{self.node.fnm_bin}" env --use-on-cd '
+                              f'--shell powershell | Out-String | Invoke-Expression }}', END]) + "\n"
         lines = [BEGIN, f'export PATH="{self.paths.bin}:$PATH"']
         if shell:
             lines += [f'export FNM_DIR="{self.node.fnm_dir}"',
@@ -114,6 +127,13 @@ class ShellIntegration:
 
     def targets(self) -> list[tuple[Path, str | None]]:
         import shutil
+        from . import platform as plat
+        if plat.is_windows():   # Windows PowerShell 5 and PowerShell 7 profiles
+            docs = self.home / "Documents"
+            return [(docs / "WindowsPowerShell" / "Microsoft.PowerShell_profile.ps1", "powershell"),
+                    (docs / "PowerShell" / "Microsoft.PowerShell_profile.ps1", "powershell")]
+        if plat.is_macos():     # zsh is the default shell; bash reads .bash_profile
+            return [(self.home / ".zshrc", "zsh"), (self.home / ".bash_profile", "bash")]
         t: list[tuple[Path, str | None]] = [(self.home / ".bashrc", "bash"), (self.home / ".profile", None)]
         zrc = self.home / ".zshrc"
         if zrc.exists() or shutil.which("zsh"):
@@ -131,9 +151,31 @@ class ShellIntegration:
             base = self._strip(text).rstrip("\n")
             new = (base + "\n\n" if base else "") + self._block(shell)
             if new != text:
+                f.parent.mkdir(parents=True, exist_ok=True)
                 f.write_text(new)
             done.append(f)
+        self._user_path(True)
         return done
+
+    def _user_path(self, add: bool) -> None:
+        """Windows: also put PIPanel's bin folder on the user's PATH, so cmd.exe, VS Code and every new program
+        find `php`, `composer` and `pipanel`."""
+        from . import platform as plat
+        if not plat.is_windows():
+            return
+        import ctypes
+        import winreg
+        bin_dir = str(self.paths.bin)
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0,
+                            winreg.KEY_QUERY_VALUE | winreg.KEY_SET_VALUE) as k:
+            try:
+                value, kind = winreg.QueryValueEx(k, "Path")
+            except FileNotFoundError:
+                value, kind = "", winreg.REG_EXPAND_SZ
+            parts = [x for x in value.split(";") if x and x.rstrip("\\") != bin_dir.rstrip("\\")]
+            parts = [bin_dir, *parts] if add else parts
+            winreg.SetValueEx(k, "Path", 0, kind, ";".join(parts))
+        ctypes.windll.user32.SendMessageTimeoutW(0xFFFF, 0x001A, 0, "Environment", 0x0002, 2000, None)
 
     def remove(self) -> list[Path]:
         done = []
@@ -141,8 +183,9 @@ class ShellIntegration:
             if f.exists() and BEGIN in f.read_text():
                 f.write_text(self._strip(f.read_text()).strip("\n") + "\n")
                 done.append(f)
+        self._user_path(False)
         return done
 
     def installed(self) -> bool:
-        f = self.home / ".bashrc"
+        f = self.targets()[0][0]
         return f.exists() and BEGIN in f.read_text()

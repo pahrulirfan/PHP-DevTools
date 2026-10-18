@@ -67,7 +67,8 @@ def host_str(host: str) -> str:
 
 class MySQL:
     def __init__(self, paths: Paths, runner: Runner, *, port: int = 3306, engine: str = "mysql",
-                 mysqld: str | None = None, client: str | None = None, init: str | None = None):
+                 mysqld: str | None = None, client: str | None = None, init: str | None = None,
+                 dump: str | None = None, basedir: str = "/usr"):
         if engine not in ENGINES:
             raise MySQLError(f"unknown database engine: {engine!r}")
         self.engine = ENGINES[engine]
@@ -75,6 +76,10 @@ class MySQL:
         self.mysqld = mysqld or self.engine.server        # the server binary (mysqld / mariadbd)
         self.client = client or self.engine.client
         self.init_bin = init or self.engine.init
+        if dump:
+            import dataclasses
+            self.engine = dataclasses.replace(self.engine, dump=dump)
+        self.basedir = basedir
         self.datadir = paths.db_data(engine)
         self.cfgdir = paths.config / engine
 
@@ -98,7 +103,7 @@ class MySQL:
     def write_config(self) -> bool:
         text = T.render_mysql_cnf(datadir=self.datadir, socket=self.socket,
                                   pid=self.paths.run / "mysql.pid", log=self.paths.logs / "mysql.log",
-                                  port=self.port, engine=self.engine.key)
+                                  port=self.port, engine=self.engine.key, basedir=self.basedir)
         self.cnf.parent.mkdir(parents=True, exist_ok=True)
         changed = not self.cnf.exists() or self.cnf.read_text() != text
         if changed:
@@ -108,7 +113,12 @@ class MySQL:
         return changed
 
     def _write_client(self, password: str | None) -> None:
-        lines = ["[client]", "user=root", f"socket={self.socket}"]
+        from . import platform
+        lines = ["[client]", "user=root"]
+        if platform.is_windows():   # no unix sockets: TCP to the local server
+            lines += ["host=127.0.0.1", f"port={self.port}", "protocol=TCP"]
+        else:
+            lines.append(f"socket={self.socket}")
         if password:
             if "\n" in password or "\r" in password:
                 raise MySQLError("password must not contain a newline")
@@ -128,9 +138,14 @@ class MySQL:
         self.datadir.mkdir(parents=True, exist_ok=True)
         self.paths.run.mkdir(parents=True, exist_ok=True)
         self.paths.logs.mkdir(parents=True, exist_ok=True)
-        if self.init_bin:   # MariaDB: root gets a normal (empty) password instead of unix_socket auth
+        from . import platform
+        if self.init_bin and platform.is_windows():   # mariadb-install-db.exe has its own, shorter option list
+            cmd = [self.init_bin, f"--datadir={self.datadir}", f"--port={self.port}", "--silent"]
+        elif self.init_bin:   # MariaDB: root gets a normal (empty) password instead of unix_socket auth
             cmd = [self.init_bin, f"--defaults-file={self.cnf}", f"--datadir={self.datadir}",
                    "--auth-root-authentication-method=normal", "--skip-test-db"]
+            if platform.is_macos():
+                cmd.insert(2, f"--basedir={self.basedir}")
         else:
             cmd = [self.mysqld, f"--defaults-file={self.cnf}", "--initialize-insecure"]
         r = self.runner.run(cmd, timeout=300)
@@ -140,9 +155,8 @@ class MySQL:
         return r
 
     def unit_spec(self) -> dict:
-        return dict(description=f"PIPanel: {self.label}",
-                    exec_start=f"{self.mysqld} --defaults-file={self.cnf}",
-                    exec_pre=[f"/bin/mkdir -p {self.paths.run} {self.paths.logs}"])
+        return dict(description=f"PIPanel: {self.label}", argv=[str(self.mysqld), f"--defaults-file={self.cnf}"],
+                    dirs=[str(self.paths.run), str(self.paths.logs)])
 
     # --- SQL ---
     def query(self, sql: str) -> Result:
@@ -225,7 +239,7 @@ class MySQL:
     def drop_extra_root_accounts(self) -> list[str]:
         """MariaDB's installer also creates root@127.0.0.1, root@::1 and root@<hostname> with an empty password,
         and changing the password only affects root@localhost. Keep only root@localhost."""
-        hosts = [h for u, h in self.users() if u == "root" and h != "localhost"]
+        hosts = [h for u, h in self.users() if u == "root" and h not in self._root_hosts()]
         if hosts:
             self._exec(";".join(f"DROP USER 'root'@{host_str(h)}" for h in hosts))
         return hosts
@@ -239,9 +253,18 @@ class MySQL:
             time.sleep(0.5)
         return False
 
+    @staticmethod
+    def _root_hosts() -> tuple[str, ...]:
+        """Root accounts that PIPanel keeps. On Windows the client connects over TCP, which may arrive as
+        root@127.0.0.1 or root@::1 instead of root@localhost."""
+        from . import platform
+        return ("localhost", "127.0.0.1", "::1") if platform.is_windows() else ("localhost",)
+
     def set_root_password(self, new: str) -> None:
         self.drop_extra_root_accounts()
-        self._exec(f"ALTER USER 'root'@'localhost' IDENTIFIED BY {sql_str(new)}; FLUSH PRIVILEGES;")
+        roots = [h for u, h in self.users() if u == "root"] or ["localhost"]
+        self._exec(" ".join(f"ALTER USER 'root'@{host_str(h)} IDENTIFIED BY {sql_str(new)};" for h in roots)
+                   + " FLUSH PRIVILEGES;")
         self._write_client(new)
 
     def root_password(self) -> str:

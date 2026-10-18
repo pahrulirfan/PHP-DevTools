@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import platform
 import queue
@@ -23,6 +22,16 @@ URLS = {
     "amd64": "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz",
     "arm64": "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz",
 }
+OTHER_URL = "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-{os}-{arch}.zip"   # windows, darwin
+
+
+def download_url(machine: str | None = None) -> str:
+    from . import platform as plat
+    if plat.is_windows():
+        return OTHER_URL.format(os="windows", arch=arch(machine))
+    if plat.is_macos():
+        return OTHER_URL.format(os="darwin", arch=arch(machine))
+    return URLS[arch(machine)]
 API_PORTS = (4040, 4041, 4042)
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9_]{10,}$")
 
@@ -89,21 +98,21 @@ class Ngrok:
 
     @property
     def bin(self) -> Path:
-        return self.paths.bin / "ngrok"
+        from . import platform as plat
+        return self.paths.bin / plat.exe("ngrok")
 
     def installed(self) -> bool:
         return self.bin.exists()
 
     def install(self, fetch: Callable[[str], bytes], machine: str | None = None) -> Path:
-        data = fetch(URLS[arch(machine)])
-        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as t:
-            member = next((m for m in t.getmembers() if m.isfile() and Path(m.name).name == "ngrok"), None)
-            if member is None:
-                raise NgrokError("archive does not contain the ngrok binary")
-            f = t.extractfile(member)
-            assert f is not None
-            self.paths.bin.mkdir(parents=True, exist_ok=True)
-            self.bin.write_bytes(f.read())
+        from .archive import ArchiveError, member
+        data = fetch(download_url(machine))
+        try:
+            binary = member(data, self.bin.name)
+        except (ArchiveError, tarfile.TarError) as e:
+            raise NgrokError("archive does not contain the ngrok binary") from e
+        self.paths.bin.mkdir(parents=True, exist_ok=True)
+        self.bin.write_bytes(binary)
         self.bin.chmod(0o755)
         return self.bin
 
@@ -181,7 +190,7 @@ class Ngrok:
         if not valid_site_name(site):
             raise NgrokError(f"invalid site name: {site!r}")
         return dict(description=f"PIPanel: ngrok share {site}",
-                    exec_start=f"{self.bin} http {port} --host-header={site}.{tld} --log=stdout")
+                    argv=[str(self.bin), "http", str(port), f"--host-header={site}.{tld}", "--log=stdout"])
 
     def public_url(self, fetch: Callable[[str], bytes]) -> str | None:
         for port in API_PORTS:

@@ -28,7 +28,7 @@ def test_ngrok_install_and_unit(paths, runner):
     n.install(lambda u: _tgz(["ngrok"]), "x86_64")
     assert n.installed() and n.bin.stat().st_mode & 0o100
     spec = n.unit_spec("blog")
-    assert spec["exec_start"] == f"{n.bin} http 80 --host-header=blog.test --log=stdout"
+    assert spec["argv"] == [str(n.bin), "http", "80", "--host-header=blog.test", "--log=stdout"]
     with pytest.raises(NgrokError):
         n.unit_spec("a;b")
     with pytest.raises(NgrokError):
@@ -162,3 +162,37 @@ def test_http_fetch_resumes_a_dropped_download():
     finally:
         srv.shutdown()
     assert seen == [None, "bytes=30000-", "bytes=60000-"]
+
+
+# ---------- PIPanel's own DNS server (Windows, macOS) ----------
+def test_dns_server_answers_test_names():
+    import socket as _s
+    from pipanel.core import dns, dnsd
+    with _s.socket(_s.AF_INET, _s.SOCK_DGRAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    ready = threading.Event()
+    threading.Thread(target=dnsd.serve, args=(port, "test"), kwargs={"ready": ready.set}, daemon=True).start()
+    assert ready.wait(5)
+    assert dns.query_a("blog.test", port=port) == ["127.0.0.1"]
+    assert dns.query_a("deep.sub.blog.test", port=port) == ["127.0.0.1"]
+    assert dns.query_a("example.com", port=port) == []
+
+
+def test_dns_answer_records():
+    import struct
+    from pipanel.core.dnsd import AAAA, answer, parse_question
+
+    def query(name, qtype, tid=0x1234):
+        q = struct.pack(">HHHHHH", tid, 0x0100, 1, 0, 0, 0)
+        for label in name.split("."):
+            q += bytes([len(label)]) + label.encode()
+        return q + b"\x00" + struct.pack(">HH", qtype, 1)
+    assert parse_question(query("Blog.TEST", 1))[1:3] == ("blog.test", 1)
+    r = answer(query("blog.test", 1))
+    assert r[:2] == b"\x12\x34" and struct.unpack(">H", r[6:8])[0] == 1 and r.endswith(bytes([127, 0, 0, 1]))
+    r = answer(query("blog.test", AAAA))
+    assert struct.unpack(">H", r[6:8])[0] == 0 and struct.unpack(">H", r[2:4])[0] & 0xF == 0   # NOERROR, empty
+    assert struct.unpack(">H", answer(query("example.com", 1))[2:4])[0] & 0xF == 5            # REFUSED
+    assert answer(b"\x00" * 5) is None
+    assert answer(query("blog.test", 1)[:-3]) is None

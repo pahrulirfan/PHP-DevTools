@@ -37,8 +37,8 @@ class Redis:
         return True
 
     def unit_spec(self) -> dict:
-        return dict(description="PIPanel: Redis", exec_start=f"{self.server} {self.conf}",
-                    exec_pre=[f"/bin/mkdir -p {self.paths.run} {self.data_dir}"])
+        return dict(description="PIPanel: Redis", argv=[str(self.server), str(self.conf)],
+                    dirs=[str(self.paths.run), str(self.data_dir)])
 
     def ping(self, timeout: float = 1.0) -> bool:
         try:

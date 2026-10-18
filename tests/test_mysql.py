@@ -84,7 +84,7 @@ def test_root_password_roundtrip(my, runner):
 
 def test_unit_spec(my):
     s = my.unit_spec()
-    assert s["exec_start"].endswith(f"--defaults-file={my.cnf}")
+    assert s["argv"][-1] == f"--defaults-file={my.cnf}"
 
 
 # ---------- MariaDB engine ----------
@@ -124,7 +124,7 @@ def test_mariadb_initialize_uses_install_db(maria, runner):
 def test_mariadb_binaries_and_unit(maria):
     assert maria.mysqld == "/usr/sbin/mariadbd" and maria.client == "mariadb"
     s = maria.unit_spec()
-    assert s["exec_start"].startswith("/usr/sbin/mariadbd --defaults-file=") and "MariaDB" in s["description"]
+    assert s["argv"][0] == "/usr/sbin/mariadbd" and s["argv"][1].startswith("--defaults-file=") and "MariaDB" in s["description"]
 
 
 def test_internal_accounts_are_hidden(maria, runner):

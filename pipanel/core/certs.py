@@ -15,16 +15,16 @@ class CertError(Exception):
 
 
 class Certs:
-    def __init__(self, paths: Paths, runner: Runner, *, system_ca: Path = SYSTEM_CA):
-        self.paths, self.runner, self.system_ca = paths, runner, system_ca
+    def __init__(self, paths: Paths, runner: Runner, *, system_ca: Path = SYSTEM_CA, mkcert: str = "mkcert"):
+        self.paths, self.runner, self.system_ca, self.mkcert = paths, runner, system_ca, mkcert
 
     def available(self) -> bool:
         """mkcert is optional: it is only needed for HTTPS. Plain http://name.test works without it."""
         import shutil
-        return shutil.which("mkcert") is not None
+        return Path(self.mkcert).exists() if Path(self.mkcert).is_absolute() else shutil.which(self.mkcert) is not None
 
     def caroot(self) -> Path | None:
-        r = self.runner.run(["mkcert", "-CAROOT"])
+        r = self.runner.run([self.mkcert, "-CAROOT"])
         return Path(r.out.strip()) if r.ok and r.out.strip() else None
 
     def ca_exists(self) -> bool:
@@ -33,10 +33,22 @@ class Certs:
 
     def install_ca_user(self) -> Result:
         """Install the CA into the NSS store (Firefox/Chrome) without root. The system store goes through the `trust-ca` helper command."""
-        return self.runner.run(["mkcert", "-install"], env={"TRUST_STORES": "nss"})
+        from . import platform
+        if platform.current() == platform.LINUX:
+            return self.runner.run([self.mkcert, "-install"], env={"TRUST_STORES": "nss"})
+        # Windows and macOS: create the CA (and add it to Firefox when there is one) without the system dialogs;
+        # the system store is done in the setup's single administrator step
+        return self.runner.run([self.mkcert, "-install"], env={"TRUST_STORES": "nss"}, timeout=300)
 
     def system_trusted(self) -> bool:
-        return self.system_ca.exists()
+        from . import platform
+        if platform.current() == platform.LINUX:
+            return self.system_ca.exists()
+        return (self.paths.config / ".ca-trusted").exists()
+
+    def mark_trusted(self) -> None:
+        self.paths.config.mkdir(parents=True, exist_ok=True)
+        (self.paths.config / ".ca-trusted").write_text("")
 
     def cert_paths(self, name: str, tld: str) -> tuple[Path, Path]:
         return (self.paths.certs / f"{name}.{tld}.pem", self.paths.certs / f"{name}.{tld}-key.pem")
@@ -51,7 +63,7 @@ class Certs:
         if cert.exists() and key.exists():
             return cert
         self.paths.certs.mkdir(parents=True, exist_ok=True)
-        r = self.runner.run(["mkcert", "-cert-file", str(cert), "-key-file", str(key),
+        r = self.runner.run([self.mkcert, "-cert-file", str(cert), "-key-file", str(key),
                              f"{name}.{tld}", f"*.{name}.{tld}"])
         if r.code == 127:   # command not found
             raise CertError("HTTPS needs mkcert, which is not installed. Install it with `sudo apt install mkcert` "

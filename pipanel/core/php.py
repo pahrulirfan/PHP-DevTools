@@ -5,6 +5,7 @@ import hashlib
 import os
 import re
 import stat
+import sys
 from pathlib import Path
 from typing import Callable
 
@@ -61,6 +62,38 @@ class PHP:
 
     def conf_d(self, v: str) -> Path:
         return self.paths.php_dir(v) / "conf.d"
+
+    reload_how = "signal:USR2"   # PHP-FPM reloads its workers on SIGUSR2
+    uses_fpm_conf = True         # PIPanel writes a php-fpm.conf per version
+
+    def cli_template(self) -> str:
+        """Path of the CLI binary of version $v, for the shell wrapper."""
+        return f"{self.usr_bin}/php$v"
+
+    def upstream_servers(self, v: str) -> list[str]:
+        return []   # PHP-FPM listens on a unix socket; no upstream block
+
+    def version_for(self, folder: Path, default: str) -> str:
+        """The PHP version of the site that contains `folder` (the deepest one), else `default`."""
+        try:
+            rows = [l.split("\t") for l in self.site_map.read_text().splitlines() if "\t" in l]
+        except OSError:
+            return default
+        here = [str(folder).rstrip("/\\") + "/", str(Path(folder).resolve()).rstrip("/\\") + "/"]
+        for site, v in rows:   # deepest first
+            prefix = site.rstrip("/\\") + "/"
+            if any(h.replace("\\", "/").lower().startswith(prefix.replace("\\", "/").lower())
+                   if sys.platform.startswith("win") else h.startswith(prefix) for h in here):
+                return v if v in self.installed() else default
+        return default
+
+    def server_argv(self, v: str) -> list[str]:
+        """The PHP server that Nginx talks to (PHP-FPM here)."""
+        return [str(self.fpm_bin(v)), "--nodaemonize", "--fpm-config", str(self.paths.php_dir(v) / "php-fpm.conf")]
+
+    def upstream(self, v: str) -> str:
+        """What nginx's fastcgi_pass points at."""
+        return f"unix:{self.paths.php_socket(v)}"
 
     def cli_cmd(self, v: str, args: list[str]) -> tuple[list[str], dict[str, str]]:
         """argv + environment to run `php<v> <args>` with PIPanel's own conf.d (extensions and ini settings)."""
@@ -136,7 +169,7 @@ class PHP:
 
     def xdebug_state(self, v: str) -> str:
         """'missing' (package not installed), 'off', or 'on'."""
-        if not (self._mods(v) / "xdebug.ini").exists():
+        if "xdebug" not in {n for n, _ in self.extensions(v)}:
             return "missing"
         return "on" if self._enabled_link(v, "xdebug") else "off"
 
@@ -195,9 +228,9 @@ class PHP:
             "  done\n"
             "fi\n"
             f'case "$v" in 8.[0-9]) ;; *) v="{v}" ;; esac\n'
-            f'[ -x "{self.usr_bin}/php$v" ] || v="{v}"\n'
+            f'[ -x "{self.cli_template()}" ] || v="{v}"\n'
             f'export PHP_INI_SCAN_DIR="{conf_root}/$v/conf.d"\n'
-            f'exec "{self.usr_bin}/php$v" "$@"\n'
+            f'exec "{self.cli_template()}" "$@"\n'
         )
         if not f.exists() or f.read_text() != text:
             f.write_text(text)
