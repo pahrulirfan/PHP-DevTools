@@ -30,6 +30,22 @@ def _render(template: str, /, **values) -> str:
                                "tray menu and open it again.") from e
 
 
+def _posix(value) -> str:
+    """Paths in nginx configs use forward slashes, also on Windows (C:/Users/...)."""
+    from . import platform
+    return str(value).replace("\\", "/") if platform.is_windows() else str(value)
+
+
+_env.filters["p"] = _posix
+
+
+def listen_prefix() -> str:
+    """Linux serves the sites on every interface (as before); Windows and macOS only to this computer, which also
+    keeps their firewalls from asking about Nginx."""
+    from . import platform
+    return "" if platform.current() == platform.LINUX else "127.0.0.1:"
+
+
 _NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
 _VERSION_RE = re.compile(r"^8\.[0-9]$")
 
@@ -48,9 +64,10 @@ def nginx_supports_http2_directive(version: str) -> bool:
     return bool(m) and tuple(map(int, m.groups())) >= (1, 25, 1)
 
 
-def render_nginx_conf(paths: Paths, etc_nginx: Path | str = "/etc/nginx", http_port: int = 80) -> str:
+def render_nginx_conf(paths: Paths, etc_nginx: Path | str = "/etc/nginx", http_port: int = 80,
+                      upstreams: dict[str, list[str]] | None = None) -> str:
     return _render("nginx.conf.j2",
-        etc_nginx=etc_nginx, http_port=http_port,
+        etc_nginx=etc_nginx, http_port=http_port, upstreams=upstreams or {}, listen=listen_prefix(),
         run_dir=paths.run,
         temp_dir=paths.run / "nginx-tmp",
         sites_dir=paths.nginx_sites,
@@ -60,14 +77,16 @@ def render_nginx_conf(paths: Paths, etc_nginx: Path | str = "/etc/nginx", http_p
 def render_site(paths: Paths, *, name: str, docroot: Path | str, php_version: str,
                 tld: str = "test", https: bool = False, upload_max: str = "128m",
                 nginx_version: str = "1.24.0", etc_nginx: Path | str = "/etc/nginx",
-                http_port: int = 80, https_port: int = 443, local_only: bool = False) -> str:
+                http_port: int = 80, https_port: int = 443, local_only: bool = False,
+                php_upstream: str | None = None) -> str:
     if not valid_site_name(name):
         raise ValueError(f"invalid site name: {name!r}")
     if not valid_php_version(php_version):
         raise ValueError(f"invalid PHP version: {php_version!r}")
     return _render("site.conf.j2",
         name=name, tld=tld, docroot=docroot, https=https, upload_max=upload_max, etc_nginx=etc_nginx,
-        http_port=http_port, https_port=https_port, local_only=local_only,
+        http_port=http_port, https_port=https_port, local_only=local_only, listen=listen_prefix(),
+        php_upstream=php_upstream or f"unix:{paths.php_socket(php_version)}",
         cert=paths.certs / f"{name}.{tld}.pem",
         key=paths.certs / f"{name}.{tld}-key.pem",
         log_dir=paths.logs,
@@ -86,6 +105,7 @@ def render_proxy(paths: Paths, *, name: str, target: str, tld: str = "test", htt
         raise ValueError(f"invalid proxy target: {target!r}")
     return _render("proxy.conf.j2",
         name=name, tld=tld, target=target, https=https, local_only=local_only, upload_max=upload_max,
+        listen=listen_prefix(),
         http_port=http_port, https_port=https_port,
         cert=paths.certs / f"{name}.{tld}.pem",
         key=paths.certs / f"{name}.{tld}-key.pem",
@@ -120,9 +140,11 @@ def render_unit(*, description: str, exec_start: str, exec_reload: str | None = 
     )
 
 
-def render_mysql_cnf(*, datadir, socket, pid, log, port: int = 3306, engine: str = "mysql") -> str:
-    return _render("mysql.cnf.j2", datadir=datadir, socket=socket, pid=pid, log=log, port=port,
-                                                    engine=engine)
+def render_mysql_cnf(*, datadir, socket, pid, log, port: int = 3306, engine: str = "mysql",
+                     basedir: str = "/usr") -> str:
+    from . import platform
+    return _render("mysql.cnf.j2", datadir=datadir, socket=socket, pid=pid, log=log, port=port, engine=engine,
+                   basedir=basedir, linux=platform.current() == platform.LINUX, unix=not platform.is_windows())
 
 
 def render_redis_conf(paths: Paths, *, port: int = 6379) -> str:

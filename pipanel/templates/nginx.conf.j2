@@ -1,5 +1,5 @@
 daemon off;
-pid {{ run_dir }}/nginx.pid;
+pid "{{ run_dir|p }}/nginx.pid";
 error_log stderr warn;
 
 events {
@@ -7,7 +7,7 @@ events {
 }
 
 http {
-    include {{ etc_nginx }}/mime.types;
+    include "{{ etc_nginx|p }}/mime.types";
     default_type application/octet-stream;
     sendfile on;
     keepalive_timeout 65;
@@ -21,18 +21,26 @@ http {
         ''      close;
     }
 
-    client_body_temp_path {{ temp_dir }}/client_body;
-    proxy_temp_path       {{ temp_dir }}/proxy;
-    fastcgi_temp_path     {{ temp_dir }}/fastcgi;
-    uwsgi_temp_path       {{ temp_dir }}/uwsgi;
-    scgi_temp_path        {{ temp_dir }}/scgi;
+    client_body_temp_path "{{ temp_dir|p }}/client_body";
+    proxy_temp_path       "{{ temp_dir|p }}/proxy";
+    fastcgi_temp_path     "{{ temp_dir|p }}/fastcgi";
+    uwsgi_temp_path       "{{ temp_dir|p }}/uwsgi";
+    scgi_temp_path        "{{ temp_dir|p }}/scgi";
 
     # Unknown site
     server {
-        listen {{ http_port }} default_server;
+        listen {{ listen }}{{ http_port }} default_server;
         server_name _;
         return 404 "PIPanel: site not found\n";
     }
 
-    include {{ sites_dir }}/*.conf;
+{% for name, servers in upstreams.items() %}
+    upstream {{ name }} {
+{% for s in servers %}
+        server {{ s }};
+{% endfor %}
+    }
+{% endfor %}
+
+    include "{{ sites_dir|p }}/*.conf";
 }

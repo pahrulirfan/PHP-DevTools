@@ -6,7 +6,7 @@ from pipanel.core import templates as t
 def test_site_http_only(paths):
     out = t.render_site(paths, name="blog", docroot="/p/blog/public", php_version="8.3")
     assert "server_name blog.test;" in out
-    assert "root /p/blog/public;" in out
+    assert 'root "/p/blog/public";' in out
     assert f"fastcgi_pass unix:{paths.run}/php8.3.sock;" in out
     assert "443" not in out and "ssl_certificate" not in out
 
@@ -15,7 +15,7 @@ def test_site_https_old_nginx_uses_http2_on_listen(paths):
     out = t.render_site(paths, name="blog", docroot="/p", php_version="8.3", https=True,
                         nginx_version="1.18.0")
     assert "listen 443 ssl http2;" in out and "http2 on;" not in out
-    assert f"ssl_certificate     {paths.certs}/blog.test.pem;" in out
+    assert f'ssl_certificate     "{paths.certs}/blog.test.pem";' in out
 
 
 def test_site_https_new_nginx_uses_http2_directive(paths):
@@ -39,9 +39,9 @@ def test_rejects_bad_php_versions(paths, bad):
 def test_nginx_conf_is_user_owned(paths):
     out = t.render_nginx_conf(paths)
     assert "daemon off;" in out
-    assert f"include {paths.nginx_sites}/*.conf;" in out
+    assert f'include "{paths.nginx_sites}/*.conf";' in out
     assert "/var/" not in out and "\nuser " not in out
-    assert f"pid {paths.run}/nginx.pid;" in out
+    assert f'pid "{paths.run}/nginx.pid";' in out
 
 
 def test_php_fpm_no_user_directive(paths):

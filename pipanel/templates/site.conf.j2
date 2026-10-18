@@ -1,22 +1,22 @@
 server {
-    listen {{ http_port }};
+    listen {{ listen }}{{ http_port }};
 {% if https %}
-    listen {{ https_port }} ssl{% if not http2_directive %} http2{% endif %};
+    listen {{ listen }}{{ https_port }} ssl{% if not http2_directive %} http2{% endif %};
 {% if http2_directive %}
     http2 on;
 {% endif %}
-    ssl_certificate     {{ cert }};
-    ssl_certificate_key {{ key }};
+    ssl_certificate     "{{ cert|p }}";
+    ssl_certificate_key "{{ key|p }}";
 {% endif %}
 
     server_name {{ name }}.{{ tld }};
-    root {{ docroot }};
+    root "{{ docroot|p }}";
     index index.php index.html;
     charset utf-8;
     client_max_body_size {{ upload_max }};
 
-    access_log {{ log_dir }}/{{ name }}-access.log;
-    error_log  {{ log_dir }}/{{ name }}-error.log;
+    access_log "{{ log_dir|p }}/{{ name }}-access.log";
+    error_log  "{{ log_dir|p }}/{{ name }}-error.log";
 {% if local_only %}
 
     # a tool of PIPanel: only this computer may open it
@@ -31,10 +31,10 @@ server {
 
     location ~ \.php$ {
         try_files $uri =404;
-        include {{ etc_nginx }}/fastcgi_params;
+        include "{{ etc_nginx|p }}/fastcgi_params";
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         fastcgi_param DOCUMENT_ROOT   $realpath_root;
-        fastcgi_pass unix:{{ php_socket }};
+        fastcgi_pass {{ php_upstream }};
     }
 
     location ~ /\.(?!well-known).* { deny all; }
