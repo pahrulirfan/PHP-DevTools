@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QButtonGroup, QDialog, QHBoxLayout, QLabel, QMessageBox, QProgressBar,
                                QPushButton, QStackedWidget, QTextEdit, QVBoxLayout, QWidget)
 
@@ -10,6 +10,7 @@ from . import theme
 from .icons import icon, logo_icon
 from .pages.laravel import LaravelPage
 from .pages.logs import LogsPage
+from .pages.mail import MailPage
 from .pages.mysql import MySQLPage
 from .pages.node import NodePage
 from .pages.php import PHPPage
@@ -17,11 +18,18 @@ from .pages.services import ServicesPage
 from .pages.settings import SettingsPage
 from .pages.share import SharePage
 from .pages.sites import SitesPage
+from ..core.runner import Result
+from ..core.services import service_title
 from .activity import ActivityPanel
+from .notify import Notifier, Watchdog
+from .palette import Palette
+from .status import SidebarStatus, StatusMonitor
 from .tasks import Tasks
 from .widgets import Banner, button, clear_layout, hbox, icon_button, label
 
-PAGES = [SitesPage, LaravelPage, PHPPage, NodePage, MySQLPage, SharePage, ServicesPage, LogsPage, SettingsPage]
+PAGES = [SitesPage, LaravelPage, PHPPage, NodePage, MySQLPage, MailPage, SharePage, ServicesPage, LogsPage,
+         SettingsPage]
+POLL_VISIBLE, POLL_HIDDEN = 4000, 15000   # ms between service state checks
 
 
 class MainWindow(QWidget):
@@ -35,6 +43,7 @@ class MainWindow(QWidget):
         self.tray_available = False
         self.tasks = Tasks(self)
         self.tasks.error_handler = self.error
+        self.monitor = StatusMonitor(ctl, self.tasks, self, POLL_HIDDEN)
 
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -73,6 +82,8 @@ class MainWindow(QWidget):
             self.nav.append(b)
             sl.addWidget(b)
         sl.addStretch(1)
+        self.side_status = SidebarStatus(self, self.monitor)
+        sl.addWidget(self.side_status)
         root.addWidget(side)
 
         # --- konten ---
@@ -103,6 +114,17 @@ class MainWindow(QWidget):
         wrap.addWidget(self.banner)
         cl.addLayout(wrap)
 
+        # a service that stopped working: the reason and a fix, right where the developer looks
+        self.problem = Banner("", "Restart", self.restart_problem, "refresh")
+        self.problem.details = button("Details", None, on_click=lambda: self.show_problem(self._problem))
+        self.problem.layout().addWidget(self.problem.details)
+        self.problem.setVisible(False)
+        self._problem = ""
+        pw = QHBoxLayout()
+        pw.setContentsMargins(32, 0, 32, 8)
+        pw.addWidget(self.problem)
+        cl.addLayout(pw)
+
         self.activity = ActivityPanel(self.tasks, self.error)
         bw = QHBoxLayout()
         bw.setContentsMargins(32, 0, 32, 8)
@@ -121,8 +143,15 @@ class MainWindow(QWidget):
 
         themer.changed.connect(self._theme_changed)
         self._theme_changed(themer.current)
+        self.notifier = Notifier(parent=self)
+        self.watchdog = Watchdog(ctl, self.monitor, self, self.notifier)
+        self.watchdog.broken.connect(self._broken)
+        self.monitor.changed.connect(self._maybe_fixed)
+        QShortcut(QKeySequence("Ctrl+K"), self, activated=self.open_palette)
+
         self.show_page(0)
         self.update_banner()
+        self.monitor.refresh()
 
     # ---- navigasi ----
     def show_page(self, i: int) -> None:
@@ -139,6 +168,65 @@ class MainWindow(QWidget):
         for i, p in enumerate(self.pages):
             if p.title == title:
                 self.show_page(i)
+
+    def page(self, title: str):
+        return next(p for p in self.pages if p.title == title)
+
+    def bring_up(self) -> None:
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def open_palette(self) -> None:
+        self.bring_up()
+        Palette(self).exec()
+
+    def show_laravel(self, site: str) -> None:
+        self.go("Laravel")
+        self.page("Laravel").select(site)
+
+    def show_logs(self, site: str) -> None:
+        self.go("Logs")
+        self.page("Logs").show_site(site)
+
+    def share_site(self, site: str) -> None:
+        self.go("Share")
+        self.page("Share").select(site)
+
+    def run_diagnostics(self) -> None:
+        self.bring_up()
+        self.go("Services")
+        self.page("Services").run_doctor()
+
+    # ---- a service that stopped working ----
+    def _broken(self, name: str, text: str) -> None:
+        self._problem = name
+        first = next((l.strip() for l in text.splitlines()[1:] if l.strip()), "")
+        self.problem.text.setText(f"{service_title(name, self.ctl.db_label)} stopped working"
+                                  + (f": {first}" if first else "."))
+        self.problem.text.setToolTip(text)
+        self.problem.setVisible(True)
+
+    def _maybe_fixed(self, states: dict) -> None:
+        if self._problem and states.get(self._problem) == "active":
+            self.problem.setVisible(False)
+            self._problem = ""
+
+    def restart_problem(self) -> None:
+        name = self._problem
+        if name:
+            self.watchdog.act(name, "restart")
+
+    def show_problem(self, name: str) -> None:
+        """Why it stopped (log lines, who holds the port) and the diagnostics."""
+        if not name:
+            return
+        self.bring_up()
+        self.go("Services")
+        title = f"{service_title(name, self.ctl.db_label)} stopped working"
+        self.tasks.run(lambda: self.ctl.failure_report(name),
+                       done=lambda text: self.show_steps(title, [(title, Result(1, "", text))]))
+        self.page("Services").run_doctor()
 
     def _paint_nav(self) -> None:
         t = theme.tokens()
@@ -200,6 +288,15 @@ class MainWindow(QWidget):
         self.tasks.run(self.ctl.setup, done=done, label="First-time setup (follow the password dialog)…", lock="system")
 
     # ---- tray ----
+    def showEvent(self, e) -> None:
+        super().showEvent(e)
+        self.monitor.set_interval(POLL_VISIBLE)
+        self.monitor.refresh()
+
+    def hideEvent(self, e) -> None:
+        super().hideEvent(e)
+        self.monitor.set_interval(POLL_HIDDEN)
+
     def closeEvent(self, e: QCloseEvent) -> None:
         if self.tray_available and not getattr(self, "quitting", False):
             e.ignore()
