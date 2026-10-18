@@ -6,7 +6,7 @@ requires-python = ">=3.10"
 dependencies = ["jinja2>=3.1"]
 
 [project.optional-dependencies]
-ui = ["PySide6>=6.5"]
+ui = ["PySide6-Essentials>=6.5"]   # QtCore, QtGui, QtWidgets, QtSvg: the full PySide6 adds ~400 MB of unused modules
 dev = ["pytest"]
 
 [project.scripts]
