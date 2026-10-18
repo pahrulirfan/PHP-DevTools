@@ -23,6 +23,7 @@ class Paths:
         system = system or platform.current()
         if system == platform.WINDOWS:   # %LOCALAPPDATA%\PIPanel\{config,data,state,run}
             base = Path(env.get("PIPANEL_HOME") or Path(env.get("LOCALAPPDATA") or Path.home() / "AppData/Local") / "PIPanel")
+            base = Path(os.path.realpath(base)) if os.name == "nt" else base   # long folder names: nginx refuses 8.3 short ones (RUNNER~1)
             return cls.under(base, systemd_user=base / "units")
         if system == platform.MACOS:     # no spaces: socket paths go into nginx and PHP-FPM configs
             base = Path(env.get("PIPANEL_HOME") or Path(env.get("HOME") or Path.home()) / "Library" / "PIPanel")

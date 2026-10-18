@@ -31,9 +31,14 @@ def _render(template: str, /, **values) -> str:
 
 
 def _posix(value) -> str:
-    """Paths in nginx configs use forward slashes, also on Windows (C:/Users/...)."""
+    """Paths in nginx configs use forward slashes, also on Windows (C:/Users/...), and the long form of every
+    folder name: nginx for Windows refuses 8.3 short names such as RUNNER~1 ("file not found")."""
     from . import platform
-    return str(value).replace("\\", "/") if platform.is_windows() else str(value)
+    if not platform.is_windows():
+        return str(value)
+    import os
+    path = os.path.realpath(str(value)) if os.name == "nt" else str(value)   # (tests simulate Windows elsewhere)
+    return path.replace("\\", "/")
 
 
 _env.filters["p"] = _posix

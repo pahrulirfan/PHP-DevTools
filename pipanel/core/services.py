@@ -2,6 +2,7 @@
 (systemd user units on Linux, the PIPanel agent on Windows and macOS)."""
 from __future__ import annotations
 
+import os
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -105,8 +106,9 @@ class Services:
 
     def _nginx_args(self) -> list[str]:
         d = self.paths.nginx_dir
-        if platform.is_windows():   # nginx for Windows wants forward slashes, and a prefix that ends with one
-            return [self.nginx_bin, "-p", d.as_posix() + "/", "-c", (d / "nginx.conf").as_posix(), "-e", "stderr"]
+        if platform.is_windows():   # forward slashes, the long folder names, and a prefix that ends with a slash
+            long = Path(os.path.realpath(d)) if os.name == "nt" else d
+            return [self.nginx_bin, "-p", long.as_posix() + "/", "-c", (long / "nginx.conf").as_posix(), "-e", "stderr"]
         return [self.nginx_bin, "-p", str(d), "-c", str(d / "nginx.conf"), "-e", "stderr"]
 
     def nginx_test(self) -> Result:

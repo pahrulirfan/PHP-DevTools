@@ -161,9 +161,13 @@ def test_https_toggle_creates_cert_and_applies(qapp, win, ui_ctl, runner):
     runner.run = fake
     page = win.pages[0]
     page.change_https(ui_ctl.site("blog"), True, Toggle(True))
-    pump(qapp, win, 20)
+    conf = ui_ctl.paths.nginx_sites / "blog.conf"
+    for _ in range(50):   # slower machines need more rounds
+        pump(qapp, win, 4)
+        if conf.exists() and "listen 443 ssl" in conf.read_text():
+            break
     assert ui_ctl.site("blog").https
-    assert "listen 443 ssl" in (ui_ctl.paths.nginx_sites / "blog.conf").read_text()
+    assert "listen 443 ssl" in conf.read_text()
 
 
 def test_https_failure_reverts_toggle_and_reports(qapp, win, ui_ctl, runner, monkeypatch):
