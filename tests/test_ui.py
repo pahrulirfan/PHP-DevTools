@@ -510,6 +510,7 @@ def test_php_page_shows_xdebug(qapp, win, ui_ctl):
     assert ui_ctl.php.xdebug_state("8.3") == "on"
 
 
+@pytest.mark.skipif(__import__("sys").platform == "darwin", reason="macOS reports folder changes late")
 def test_sites_page_shows_a_new_folder_by_itself(qapp, win, ui_ctl, tmp_path):
     win.go("Sites")
     page = page_of(win, "Sites")

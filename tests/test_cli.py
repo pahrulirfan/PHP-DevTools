@@ -77,6 +77,7 @@ def test_status_marks_unused_php(ctl, runner):
     assert "Nginx" in out and "PHP-FPM 8.2" in out and "no site uses it" in out
 
 
+@pytest.mark.posix
 def test_launcher_script(ctl):
     f = ctl.install_cli_launcher("/opt/venv/bin/python")
     assert f.read_text() == '#!/bin/sh\nexec "/opt/venv/bin/python" -m pipanel "$@"\n' and f.stat().st_mode & 0o100

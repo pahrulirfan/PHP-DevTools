@@ -38,7 +38,7 @@ class Paths:
             config=config_home / APP,
             data=xdg("XDG_DATA_HOME", ".local/share") / APP,
             state=xdg("XDG_STATE_HOME", ".local/state") / APP,
-            run=(Path(runtime) if runtime else Path(f"/run/user/{os.getuid()}")) / APP,
+            run=(Path(runtime) if runtime else Path(f"/run/user/{getattr(os, 'getuid', lambda: 1000)()}")) / APP,
             systemd_user=config_home / "systemd" / "user",
         )
 

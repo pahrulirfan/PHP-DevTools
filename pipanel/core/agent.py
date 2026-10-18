@@ -46,8 +46,21 @@ def alive(pid: int) -> bool:
     return True
 
 
-def kill_tree(pid: int, timeout: float = STOP_TIMEOUT) -> None:
-    """Stop a service and everything it started (nginx workers, php-cgi children, npm's node)."""
+def replace(tmp: Path, target: Path, attempts: int = 50) -> None:
+    """os.replace that waits while Windows refuses because a reader has the file open."""
+    for i in range(attempts):
+        try:
+            os.replace(tmp, target)
+            return
+        except PermissionError:
+            if i == attempts - 1:
+                raise
+            time.sleep(0.02)
+
+
+def kill_tree(pid: int, timeout: float = STOP_TIMEOUT, proc: subprocess.Popen | None = None) -> None:
+    """Stop a service and everything it started (nginx workers, php-cgi children, npm's node). `proc` is the
+    Popen of our own child, which is reaped while waiting (a dead child is otherwise still 'alive')."""
     if platform.is_windows():
         subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, creationflags=0x08000000)
         return
@@ -55,10 +68,12 @@ def kill_tree(pid: int, timeout: float = STOP_TIMEOUT) -> None:
         os.killpg(pid, signal.SIGTERM)
     except (ProcessLookupError, PermissionError):
         return
+    def running() -> bool:
+        return proc.poll() is None if proc is not None else alive(pid)
     end = time.monotonic() + timeout
-    while time.monotonic() < end and alive(pid):
-        time.sleep(0.1)
-    if alive(pid):
+    while time.monotonic() < end and running():
+        time.sleep(0.05)
+    if running():
         try:
             os.killpg(pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
@@ -164,7 +179,7 @@ class Agent:
     def stop(self, u: Unit) -> None:
         u.want = False
         if u.pid:
-            kill_tree(u.pid)
+            kill_tree(u.pid, proc=u.proc)
             if u.proc is not None:
                 try:
                     u.proc.wait(timeout=2)
@@ -278,7 +293,7 @@ class Agent:
                 "units": {n: {"state": u.state, "pid": u.pid} for n, u in self.units.items()}}
         tmp = self.control / "status.json.tmp"
         tmp.write_text(json.dumps(data))
-        os.replace(tmp, self.control / "status.json")
+        replace(tmp, self.control / "status.json")
 
     # ---- main loop ----
     def step(self) -> None:

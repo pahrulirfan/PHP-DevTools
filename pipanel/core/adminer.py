@@ -14,7 +14,7 @@ SITE = "adminer"
 PASSWORD_PHP = r"""
 function pipanel_password($file) {
     $text = @file_get_contents($file);
-    if ($text === false || !preg_match('/^password="(.*)"$/m', $text, $m)) {
+    if ($text === false || !preg_match('/^password="(.*)"\r?$/m', $text, $m)) {
         return '';
     }
     return strtr($m[1], array('\\"' => '"', '\\\\' => '\\'));

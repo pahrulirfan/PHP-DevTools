@@ -40,6 +40,8 @@ def simulate_linux(request, monkeypatch):
     themselves; `native` tests use the machine's own."""
     if "native" not in request.keywords:
         monkeypatch.setenv("PIPANEL_PLATFORM", "linux")
+    for var in ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "PIPANEL_HOME", "NGROK_AUTHTOKEN"):
+        monkeypatch.delenv(var, raising=False)   # CI machines set some of these (and may have an ngrok config)
 
 
 def pytest_collection_modifyitems(config, items):

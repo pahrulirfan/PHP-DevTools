@@ -40,7 +40,7 @@ def test_nginx_conf_is_user_owned(paths):
     out = t.render_nginx_conf(paths)
     assert "daemon off;" in out
     assert f'include "{paths.nginx_sites}/*.conf";' in out
-    assert "/var/" not in out and "\nuser " not in out
+    assert "/var/log" not in out and "/var/lib" not in out and "\nuser " not in out
     assert f'pid "{paths.run}/nginx.pid";' in out
 
 

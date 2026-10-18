@@ -29,9 +29,9 @@ jobs:
         run: packaging/build-deb.sh "${VERSION#v}" dist
       - name: Install the package and start the app in a virtual display
         run: |
-          apt-get install -y -qq ./dist/*.deb xvfb xauth >/dev/null
-          pipanel --help
-          HOME=$(mktemp -d) xvfb-run -a env QT_QPA_PLATFORM=xcb /opt/pipanel/venv/bin/python -m pipanel _smoke
+          python3 tools/ci_run.py "apt install" -- "apt-get install -y ./dist/*.deb xvfb xauth"
+          python3 tools/ci_run.py "pipanel --help" -- pipanel --help
+          HOME=$(mktemp -d) python3 tools/ci_run.py "app under Xvfb" -- xvfb-run -a env QT_QPA_PLATFORM=xcb /opt/pipanel/venv/bin/python -m pipanel _smoke
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.ubuntu }}
@@ -56,7 +56,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PIPANEL_HOME = Join-Path $env:RUNNER_TEMP "pipanel-smoke"
-          dist\PIPanel\pipanel-cli.exe _smoke
+          python tools/ci_run.py "packaged app (Windows)" -- dist\PIPanel\pipanel-cli.exe _smoke
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dist\PIPanel\pipanel-cli.exe --help
       - name: Installer and portable zip
@@ -98,7 +98,7 @@ jobs:
           PIPANEL_VERSION="${VERSION#v}" pyinstaller --noconfirm packaging/pyinstaller/pipanel.spec
       - name: Start the packaged app
         run: |
-          PIPANEL_HOME="$RUNNER_TEMP/pipanel-smoke" dist/PIPanel.app/Contents/MacOS/PIPanel _smoke
+          PIPANEL_HOME="$RUNNER_TEMP/pipanel-smoke" python tools/ci_run.py "packaged app (macOS)" -- dist/PIPanel.app/Contents/MacOS/PIPanel _smoke
       - name: Disk image
         run: |
           v="${VERSION#v}"

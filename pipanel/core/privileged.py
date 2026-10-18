@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .runner import Result, Runner
 
@@ -100,7 +100,7 @@ class WindowsPrivileged(DesktopPrivileged):
 
 class MacPrivileged(DesktopPrivileged):
     """/etc/resolver/<tld> and the System keychain need an administrator: macOS shows its password dialog."""
-    RESOLVER = Path("/etc/resolver")
+    RESOLVER = PurePosixPath("/etc/resolver")
 
     def __init__(self, runner: Runner):
         self.runner = runner
@@ -133,7 +133,7 @@ class MacPrivileged(DesktopPrivileged):
         return f"security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain '{q}'"
 
     def dns_ready(self, tld: str = "test") -> bool:
-        return (self.RESOLVER / tld).exists()
+        return Path(str(self.RESOLVER / tld)).exists()
 
     def trust_ca(self, path: Path) -> Result:
         cmd = self._trust_cmd(path)

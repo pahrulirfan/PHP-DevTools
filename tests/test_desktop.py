@@ -138,8 +138,9 @@ def test_windows_sync(win_ctl, paths, tmp_path):
     assert ctl.needs_setup()
 
 
-def test_windows_stack_downloads(windows, paths, runner):
+def test_windows_stack_downloads(windows, paths, runner, monkeypatch):
     from pipanel.core import stack
+    monkeypatch.setattr(stack, "machine", lambda: "amd64")
     st = stack.WindowsStack(paths, runner)
     nginx = zipped({"nginx.exe": b"MZ", "conf/mime.types": b"", "conf/fastcgi_params": b""}, "nginx-1.30.6/")
     maria = zipped({"bin/mariadbd.exe": b"MZ", "bin/mariadb.exe": b"MZ"}, "mariadb-11.4.13-winx64/")

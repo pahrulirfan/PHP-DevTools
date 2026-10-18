@@ -37,5 +37,16 @@ def main() -> int:
     return 1 if errors else 0
 
 
+def safe_main() -> int:
+    """main(), with a crash printed instead of lost (packaged apps have no console to show it)."""
+    import traceback
+    try:
+        return main()
+    except BaseException:  # noqa: BLE001
+        traceback.print_exc()
+        sys.stdout.flush()
+        return 1
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(safe_main())

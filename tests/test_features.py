@@ -268,6 +268,7 @@ def test_available_processes(tmp_path):
     assert processes.available(Site("spa", plain, plain, "php", "8.3", False)) == []
 
 
+@pytest.mark.posix
 def test_start_process_writes_unit_with_site_versions(ctl, tmp_path, runner, paths, monkeypatch):
     proj = mkproj(tmp_path / "proj", "blog", laravel=True)
     (proj / "package.json").write_text(json.dumps({"scripts": {"dev": "vite"}}))
@@ -314,7 +315,9 @@ def _tgz(files: dict):
 def test_install_mailpit_serves_inbox_locally(ctl, paths, runner):
     ctl.fetch = lambda u: _tgz({"LICENSE": b"x", "mailpit": b"BIN"})
     assert ctl.install_mailpit().ok
-    assert ctl.mailpit.bin.read_bytes() == b"BIN" and ctl.mailpit.bin.stat().st_mode & 0o100
+    assert ctl.mailpit.bin.read_bytes() == b"BIN"
+    if not __import__("sys").platform.startswith("win"):
+        assert ctl.mailpit.bin.stat().st_mode & 0o100
     unit = (paths.systemd_user / unit_name("mail")).read_text()
     assert "--smtp 127.0.0.1:1025 --listen 127.0.0.1:8025" in unit
     site = (paths.nginx_sites / "mailpit.conf").read_text()
@@ -333,11 +336,12 @@ def test_adminer_install_and_signin_wrapper(ctl, paths, tmp_path):
     ctl.fetch = lambda u: b"<?php\n/** Adminer - Compact database management */"
     ctl.install_adminer()
     index = (ctl.adminer.root / "index.php").read_text()
-    assert str(ctl.mysql.client_cnf) in index and "127.0.0.1:3306" in index
+    from pipanel.core.adminer import php_str
+    assert php_str(str(ctl.mysql.client_cnf)) in index and "127.0.0.1:3306" in index
     conf = (paths.nginx_sites / "adminer.conf").read_text()
     assert f'root "{ctl.adminer.root}";' in conf and "deny all;" in conf
     ctl.set_db_engine("mariadb")
-    assert "mariadb/client.cnf" in (ctl.adminer.root / "index.php").read_text()
+    assert "mariadb" in (ctl.adminer.root / "index.php").read_text() and "client.cnf" in (ctl.adminer.root / "index.php").read_text()
 
 
 @pytest.mark.skipif(not shutil.which("php"), reason="needs a PHP CLI to lint the wrapper")
@@ -446,6 +450,7 @@ def test_clone_refuses_existing_target(db):
         db.clone("blog", "blog")
 
 
+@pytest.mark.posix
 def test_runner_streams_stdin_file(tmp_path):
     from pipanel.core.runner import Runner
     f = tmp_path / "in.txt"; f.write_text("hello\n")

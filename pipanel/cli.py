@@ -254,7 +254,7 @@ def hidden(argv: list[str]) -> int:
         return fcgipool.main(rest)
     if cmd == "_smoke":
         from . import smoke
-        return smoke.main()
+        return smoke.safe_main()
     return run_tool(rest)
 
 

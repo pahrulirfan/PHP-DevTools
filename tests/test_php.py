@@ -88,6 +88,7 @@ def run_php(wrapper, cwd, **env):
     return out.stdout.split()
 
 
+@pytest.mark.posix
 def test_cli_wrapper(paths, fake_etc):
     php = PHP(paths, **fake_etc)
     fake_php_binary(fake_etc["usr_bin"], "8.3")
@@ -97,6 +98,7 @@ def test_cli_wrapper(paths, fake_etc):
     assert run_php(w, paths.data) == ["8.3", str(php.conf_d("8.3")), "-v"]
 
 
+@pytest.mark.posix
 def test_cli_wrapper_follows_the_site_version(paths, fake_etc, tmp_path):
     php = PHP(paths, **fake_etc)
     for v in ("8.2", "8.3", "8.4"):

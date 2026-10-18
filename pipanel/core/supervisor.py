@@ -222,10 +222,14 @@ class AgentSupervisor(Supervisor):
 
     # ---- the agent process ----
     def _state(self) -> dict:
-        try:
-            return json.loads((self.control / "status.json").read_text())
-        except (OSError, ValueError):
-            return {}
+        for _ in range(5):   # Windows: the agent may be replacing the file right now
+            try:
+                return json.loads((self.control / "status.json").read_text())
+            except PermissionError:
+                time.sleep(0.02)
+            except (OSError, ValueError):
+                return {}
+        return {}
 
     def agent_alive(self) -> bool:
         st = self._state()
@@ -248,9 +252,10 @@ class AgentSupervisor(Supervisor):
 
     def _send(self, name: str, verb: str) -> None:
         self.control.mkdir(parents=True, exist_ok=True)
+        from .agent import replace
         tmp = self.control / f".{name}.cmd.tmp"
         tmp.write_text(verb)
-        os.replace(tmp, self.control / f"{name}.cmd")
+        replace(tmp, self.control / f"{name}.cmd")
 
     def ctl(self, verb: str, *names: str) -> Result:
         if verb not in VERBS:

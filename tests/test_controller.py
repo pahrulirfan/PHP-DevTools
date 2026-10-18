@@ -220,15 +220,17 @@ def test_db_engine_default_and_persisted(ctl, paths):
     assert again.cfg.db_engine == "mariadb" and again.db_label == "MariaDB"
 
 
-def test_switch_engine_stops_running_one_and_starts_new(ctl, runner, paths):
+def test_switch_engine_stops_running_one_and_starts_new(ctl, runner, paths, tmp_path):
     # the new engine is installed and initialized -> its unit is written and started
-    ctl.mysql.mysqld = "/bin/true"
-    new = MySQL(paths, runner, engine="mariadb", mysqld="/bin/true")
+    server = tmp_path / "fake-server"
+    server.write_text("")
+    ctl.mysql.mysqld = str(server)
+    new = MySQL(paths, runner, engine="mariadb", mysqld=str(server))
     (new.datadir / "mysql").mkdir(parents=True)
     runner.on(["systemctl", "--user", "is-active"], Result(0, "active\n"))
     import pipanel.core.controller as c
     orig = c.MySQL
-    c.MySQL = lambda *a, **k: MySQL(*a, **{**k, "mysqld": "/bin/true"})
+    c.MySQL = lambda *a, **k: MySQL(*a, **{**k, "mysqld": str(server)})
     try:
         steps = ctl.set_db_engine("mariadb")
     finally:

@@ -12,6 +12,7 @@ from pipanel.core.certs import Certs, CertError
 from pipanel.core.runner import Result, Runner
 
 
+@pytest.mark.posix
 def test_ensure_cert_calls_mkcert(paths, runner):
     c = Certs(paths, runner)
     cert, key = c.cert_paths("blog", "test")
