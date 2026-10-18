@@ -36,7 +36,8 @@
 Laravel Herd and Laragon made local PHP development pleasant on macOS and Windows. PIPanel brings that experience
 to Linux Mint and Ubuntu, using the real Nginx, PHP-FPM and database packages instead of containers:
 
-- **Drop a project in a folder and it is live** at `project-name.test`, with the PHP version you choose.
+- **Drop a project in a folder and it is live** at `project-name.test` within seconds, with the PHP version
+  you choose. A project cloned from Git gets a one-click **Set up** (composer install, `.env`, key, database).
 - **No Docker, no daily `sudo`.** Everything runs as your own user through `systemctl --user`, so it keeps
   running when you close the window.
 - **Nothing hidden.** Plain config files in your home folder, plain systemd units, plain logs.
@@ -45,14 +46,19 @@ to Linux Mint and Ubuntu, using the real Nginx, PHP-FPM and database packages in
 
 | | |
 |---|---|
-| **Sites** | A projects folder turns every subfolder into `name.test`. Link single folders, pick the PHP version and web root per site, open it in the browser, file manager, VS Code or a terminal. |
-| **PHP** | Install PHP 8.2 to 8.5 side by side. Choose the default `php` for your terminal. Edit `php.ini` values and toggle extensions (Laravel-required ones are marked), all without touching `/etc/php`. |
-| **Laravel** | Create a project with its database and `.env` ready and migrations run. Install packages (Debugbar, Telescope, Livewire, Pest, ...) or any Packagist package, using the site's own PHP version. |
-| **Database** | **MySQL 8 or MariaDB**, to match your production server. Databases, users, root password, and a one-click Laravel `.env` snippet. |
-| **HTTPS** | One toggle per site for a certificate your browser trusts (mkcert). Optional: everything also works over plain `http://`. |
+| **Sites** | A projects folder turns every subfolder into `name.test`, **as soon as the folder appears** (even with the app closed). Link single folders, proxy a name to another dev server (Vite, Next.js, Go), pick the PHP version and web root per site. One **Actions** menu per site: browser, VS Code, terminal, folder, logs, share. Filter and pages for hundreds of sites. |
+| **Cloned projects** | A Laravel project fresh from Git is marked **Set up**: one click runs `composer install`, creates `.env` and `APP_KEY`, creates the database, then migrates or imports a `.sql` dump from the repository. |
+| **PHP** | Install PHP 8.2 to 8.5 side by side. In a site folder, `php` and `composer` in the terminal use **that site's version**. Only the versions in use run. Edit `php.ini` values, toggle extensions, and switch **Xdebug** on only while debugging (with a VS Code `launch.json`). |
+| **Laravel** | Create a project with its database and `.env` ready. Install packages (Debugbar, Telescope, Livewire, Pest, ...). Run **Vite, the queue worker, the scheduler, Reverb or Horizon** in the background instead of four terminals. `composer outdated` and `composer audit` in one click. |
+| **WordPress** | A new site with WP-CLI: WordPress downloaded, its database created, installed, and the admin password shown. |
+| **Database** | **MySQL 8 or MariaDB**, to match your production server. A table of databases with size and tables, and an Actions menu each: backup to `.sql.gz`, import, clone, write to a project's `.env`, open in **phpMyAdmin** or **Adminer** (one-click installs that sign in by themselves). Users with their access. |
+| **Mail and Redis** | **Mailpit** catches every email at `mailpit.test`. **Redis** for cache, queues and Horizon. Both write their settings into a project's `.env`. |
+| **HTTPS** | One toggle per site for a certificate your browser trusts (mkcert); `APP_URL` in `.env` follows. Optional: everything also works over plain `http://`. |
 | **Node.js** | Install and switch Node versions with fnm, with automatic switching on `.node-version` / `.nvmrc`. |
-| **Share** | Publish a site with ngrok. The panel verifies your token with ngrok before enabling the button. |
-| **Services and Doctor** | Start and stop every service. Diagnostics explain what is wrong, such as which program holds port 80. |
+| **Share** | A public link with a **Cloudflare quick tunnel** (no account) or ngrok (verified token). |
+| **Services and Doctor** | Start and stop every service from the app, the tray menu or the terminal. A **notification with the reason and a Restart button** when a service crashes. Tools you stop stay off until you start them again. Diagnostics explain what is wrong, such as which program holds port 80. |
+| **Everywhere** | **Ctrl+K** finds any site or action. The tray menu lists what runs, which sites use each PHP version, and your recent sites. The `pipanel` command does the same from a terminal (`pipanel isolate 8.2`, `pipanel share`, ...). |
+| **Logs** | Nginx, PHP-FPM, the database, every background process, and each project's `laravel.log` with a level filter. |
 | **Background tasks** | Installs run in the background; every task stays visible with its result. `apt` jobs queue, everything else runs in parallel. |
 | **Themes** | Light, dark, or follow the system. |
 
@@ -60,16 +66,16 @@ to Linux Mint and Ubuntu, using the real Nginx, PHP-FPM and database packages in
 
 <table>
   <tr>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-laravel.png"><img src="docs/assets/img/light-laravel.png" alt="Laravel packages"></picture><br><sub><b>Laravel</b>: install packages with the site's PHP version</sub></td>
-    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-database.png"><img src="docs/assets/img/light-database.png" alt="Database"></picture><br><sub><b>Database</b>: MySQL 8 or MariaDB</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-laravel.png"><img src="docs/assets/img/light-laravel.png" alt="Laravel packages and processes"></picture><br><sub><b>Laravel</b>: background processes and packages, with the site's PHP version</sub></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-database.png"><img src="docs/assets/img/light-database.png" alt="Database"></picture><br><sub><b>Database</b>: MySQL 8 or MariaDB, backups, phpMyAdmin and Adminer</sub></td>
   </tr>
   <tr>
-    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-php.png"><img src="docs/assets/img/light-php.png" alt="PHP versions"></picture><br><sub><b>PHP</b>: versions, php.ini, extensions</sub></td>
-    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-share.png"><img src="docs/assets/img/light-share.png" alt="Share with ngrok"></picture><br><sub><b>Share</b>: verified ngrok token, one click</sub></td>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-php.png"><img src="docs/assets/img/light-php.png" alt="PHP versions"></picture><br><sub><b>PHP</b>: versions, php.ini, extensions, Xdebug</sub></td>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-share.png"><img src="docs/assets/img/light-share.png" alt="Share with ngrok"></picture><br><sub><b>Share</b>: Cloudflare without an account, or ngrok</sub></td>
   </tr>
   <tr>
     <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-services-doctor.png"><img src="docs/assets/img/light-services-doctor.png" alt="Services and Doctor"></picture><br><sub><b>Services</b> and <b>Doctor</b></sub></td>
-    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-activity.png"><img src="docs/assets/img/light-activity.png" alt="Background tasks"></picture><br><sub><b>Tasks</b>: nothing gets lost</sub></td>
+    <td><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/img/dark-mail.png"><img src="docs/assets/img/light-mail.png" alt="Mailpit"></picture><br><sub><b>Mail</b>: every email in a local inbox</sub></td>
   </tr>
 </table>
 
@@ -87,7 +93,8 @@ click **Add projects folder**, choose the folder that holds your projects, and o
 `http://<project-name>.test`.
 
 `install.sh` asks for `sudo` once, only to install a small root-owned helper. See
-[what runs as root](#security).
+[what runs as root](#security). After updating PIPanel (`git pull`), run `./install.sh` again and reopen the app
+from the tray menu (Quit, then open it).
 
 <details>
 <summary>What does setup do?</summary>
@@ -108,7 +115,9 @@ flowchart LR
     P --> M[(MySQL or MariaDB<br/>your own instance)]
 ```
 
-PIPanel writes the configuration, runs each piece as a `systemd --user` unit, and reports their state. The
+PIPanel writes the configuration, runs each piece as a `systemd --user` unit, and reports their state. A
+`systemd` path unit watches the projects folders, so a new folder gets its Nginx config within seconds even when
+the app is closed, and PHP-FPM runs only for the PHP versions that sites use. The
 Python code in `pipanel/core` never imports Qt, so all of the logic is tested without a display; the UI only
 talks to one controller class.
 
@@ -117,9 +126,11 @@ talks to one controller class.
 Only a single helper runs as root, started with `pkexec` (the normal graphical password dialog). It lives in
 [`packaging/pipanel-helper`](packaging/pipanel-helper), is owned by root so your user cannot modify it, and
 accepts a fixed list of commands (`setup`, `install-php`, `remove-php`, `install-ext`, `install-database`,
-`trust-ca`, `untrust-ca`, `disable-system-services`). Every argument is validated, and the user to configure
+`install-redis`, `trust-ca`, `untrust-ca`, `disable-system-services`). PIPanel tells you (Doctor) when the
+installed helper is older than the app. Every argument is validated, and the user to configure
 comes from the system's `PKEXEC_UID`, never from arguments. Nginx, PHP, the database and ngrok all run as you.
-The database listens on `127.0.0.1` only.
+The database, Redis and Mailpit listen on `127.0.0.1` only; `mailpit.test`, `adminer.test` and
+`phpmyadmin.test` answer this computer only.
 
 ## FAQ
 
@@ -147,6 +158,25 @@ Yes, ngrok requires one. Save your authtoken on the **Share** page and click **V
 enabled once ngrok accepts it.
 </details>
 
+<details><summary>I cloned a Laravel project and it shows an error</summary>
+
+A project from Git has no `vendor/` folder and no `.env`. Its site shows **Set up**: click it (or Actions → Set
+up the project) to run `composer install`, create `.env` and `APP_KEY`, create the database, and migrate or import
+a `.sql` dump that ships with the repository.
+</details>
+
+<details><summary>A new project folder does not show up</summary>
+
+New folders are served within seconds by a folder watcher (`pipanel-watch.path`), even with the app closed.
+Run `pipanel sync` to do it by hand. The watcher follows the "start at login" setting.
+</details>
+
+<details><summary>Why does phpMyAdmin use PHP 8.3?</summary>
+
+phpMyAdmin 5.2 supports PHP up to 8.3, so PIPanel runs it with the newest installed version it supports, whatever
+your default is. Adminer works with every version.
+</details>
+
 <details><summary>MySQL or MariaDB?</summary>
 
 Whichever your production server uses. Both work with Laravel; they keep separate data folders and share
@@ -165,18 +195,21 @@ More answers are in the [documentation](https://pahrulirfan.github.io/PHP-DevToo
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e '.[ui,dev]'
-.venv/bin/pytest                        # more than 270 tests, no root and no Nginx needed
+.venv/bin/pytest                        # more than 380 tests, no root and no Nginx needed
 .venv/bin/python tools/screenshots.py   # re-render the screenshots in docs/assets/img
 .venv/bin/python -m pipanel
 ```
 
 `tools/e2e_*.py` run the real stack without root (Nginx and PHP-FPM over HTTP and HTTPS, MySQL and MariaDB,
-Composer, fnm, ngrok checks) under their own systemd unit prefix, so they never touch a real installation.
+Composer, fnm, ngrok checks, proxies, Mailpit, Adminer, phpMyAdmin, background processes, the folder watcher,
+and with `E2E_TUNNEL=1` / `E2E_WORDPRESS=1` a Cloudflare tunnel and a WordPress install) under their own systemd
+unit prefix, so they never touch a real installation.
 Design notes and decisions are in [PLAN.md](PLAN.md).
 
 ```
 pipanel/
-├─ core/        logic with no Qt: services, PHP, databases, Laravel, ngrok, Doctor, controller
+├─ cli.py       the `pipanel` terminal command
+├─ core/        logic with no Qt: services, PHP, databases, Laravel, tools, tunnels, Doctor, controller
 ├─ templates/   Jinja2 templates for Nginx, PHP-FPM, dnsmasq, systemd and database config
 ├─ ui/          Qt interface: theme, widgets, background tasks, one module per page
 └─ assets/      logo and bundled Inter font (SIL Open Font License)
@@ -188,8 +221,10 @@ docs/           the documentation site (GitHub Pages)
 
 ## Status
 
-Tested on Linux Mint 22.3 (Cinnamon). The ngrok failure paths (no token, invalid token) are checked against
-ngrok's servers; a successful tunnel needs a real account. Not yet packaged as a `.deb` or AppImage.
+Tested on Linux Mint 22.3 (Cinnamon). Cloudflare quick tunnels are tested end to end; the ngrok failure paths
+(no token, invalid token) are checked against ngrok's servers, a successful ngrok tunnel needs a real account.
+Redis and the root helper's new commands need root and are covered by dry-run tests. PostgreSQL is not
+supported yet. Not yet packaged as a `.deb` or AppImage.
 
 ## Credits
 

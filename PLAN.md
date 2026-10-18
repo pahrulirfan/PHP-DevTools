@@ -2,7 +2,7 @@
 
 Development plan for a desktop app for Laravel/PHP developers on Linux Mint, with an experience like Laravel Herd on the Mac. The name **PIPanel** stands for **P**ahrul **I**rfan **Panel**.
 
-Status: **Stage 1–3 code is complete, 221 automated tests pass, and it has been tested for real on Linux Mint 22.3** without root: Nginx 1.24 + PHP-FPM 8.3 + dnsmasq + **MySQL 8.0 and MariaDB 10.11** as `systemctl --user` units (HTTP, mkcert HTTPS, Laravel routing, version switch/reload, database login over TCP), Composer `require`/`remove` through a site's PHP, plus real downloads of Composer, fnm (+ Node 22), and ngrok. **Not yet tested** (needs root/GUI): `pkexec` + helper + polkit, `apt`/PPA, the `systemd-resolved` drop-in, database AppArmor, `mkcert -install` into NSS/system, and theme detection on Cinnamon. The real-test scripts are in `tools/e2e_*.py`.
+Status: **Stage 1–4 code is complete, more than 380 automated tests pass, and it has been tested for real on Linux Mint 22.3** without root: Nginx 1.24 + PHP-FPM 8.3 + dnsmasq + **MySQL 8.0 and MariaDB 10.11** as `systemctl --user` units (HTTP, mkcert HTTPS, Laravel routing, version switch/reload, database login over TCP), Composer `require`/`remove` through a site's PHP, plus real downloads of Composer, fnm (+ Node 22), and ngrok. **Not yet tested** (needs root/GUI): `pkexec` + helper + polkit, `apt`/PPA, the `systemd-resolved` drop-in, database AppArmor, `mkcert -install` into NSS/system, and theme detection on Cinnamon. The real-test scripts are in `tools/e2e_*.py`.
 
 ---
 
@@ -326,6 +326,29 @@ Changing a site's PHP version = change `php_socket`, run `nginx -t`, then reload
 - [x] Log viewer
 - [x] Doctor (diagnostics)
 - [ ] Distribution package (`.deb` or AppImage), optional
+
+### Stage 4: Daily comfort
+- [x] `php`/`composer` in a terminal follow the site's PHP version: the wrapper reads `~/.config/pipanel/php/sites.map` (deepest folder first); `PIPANEL_PHP=8.x` overrides
+- [x] PHP-FPM on demand: only versions used by a site, the default, or a PIPanel tool run; `apply()` starts and stops the others
+- [x] Mailpit (`mailpit.test`), Redis (root helper `install-redis`, helper version 2), Adminer and phpMyAdmin (`adminer.test`, `phpmyadmin.test`): local tools answer 127.0.0.1 only (nginx `allow`/`deny`) and sign in with the root password read from `client.cnf` on every request
+- [x] Proxy sites (`name.test` -> another dev server), with WebSocket upgrades; the upstream sees its own `Host` (Vite rejects unknown hosts), the original goes in `X-Forwarded-Host`
+- [x] Site processes (Vite through `fnm exec`, `queue:listen`, `schedule:work`, Reverb, Horizon) as `pipanel-site-<site>-<process>` units; never enabled at login
+- [x] Xdebug toggle per version (off by default) and a VS Code `launch.json`
+- [x] Database table with backup (`.sql.gz`), import, clone, "use in project"; users with their access; pages of 20 for long lists
+- [x] Set up for projects cloned from Git: composer install, `.env`, `APP_KEY`, database, migrate or import a dump
+- [x] New folders are served by themselves: `pipanel-watch.path` (inotify) runs `pipanel sync --settle`, which keeps rescanning while a fresh folder is still filling
+- [x] `.env` sync: `APP_URL` follows HTTPS and the ports when it pointed at the site
+- [x] Cloudflare quick tunnel as a second share provider (no account); public host from cloudflared's `/quicktunnel` metrics endpoint
+- [x] WordPress through WP-CLI (passwords through stdin)
+- [x] Tray: services with start/stop, PHP versions with their sites (a count above two), default PHP, recent sites; sidebar status; Ctrl+K search
+- [x] Notifications (`notify-send` with Restart/Details) when a service crashes (`failed`, or `active` -> `activating`), not when the user stops it
+- [x] Tools the user stops (database, Mailpit, Redis) are remembered in `stopped_tools` and stay off with Start all and at login
+- [x] `pipanel` command for terminals (status, sites, which, link, isolate, use, secure, proxy, share, sync, doctor, ...)
+- [x] Downloads resume with HTTP Range when the connection drops (large files on slow lines)
+- [ ] PostgreSQL
+- [ ] Distribution package
+
+**Done when:** a project cloned into the projects folder opens at `name.test` without touching the app, one click makes it run, and a crash says why.
 
 ## 9. Testing
 

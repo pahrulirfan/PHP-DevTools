@@ -38,10 +38,16 @@ class Fake(Runner):
     def run(self, argv, **kw):
         a = [str(x) for x in argv]
         if a[:3] == ["systemctl", "--user", "is-active"]:
-            return Result(0, "\n".join("inactive" if "ngrok" in u else "active" for u in a[3:]) + "\n")
+            return Result(0, "\n".join("inactive" if ("ngrok" in u or "cloudflared" in u or "queue" in u
+                                                     or "schedule" in u) else "active" for u in a[3:]) + "\n")
         sql = kw.get("input") or ""
+        if "information_schema.schemata" in sql:
+            return Result(0, "blog\t24\t3407872\nmysql\t31\t2600000\nnews\t12\t1572864\nportfolio\t7\t262144\n"
+                             "shop_api\t41\t18874368\n")
         if "SHOW DATABASES" in sql:
             return Result(0, "information_schema\nmysql\nperformance_schema\nblog\nshop_api\nportfolio\nnews\n")
+        if "schema_privileges" in sql:
+            return Result(0, "blog\tlocalhost\tblog\nroot\tlocalhost\t*\nshop\tlocalhost\tshop_api\n")
         if "FROM mysql.user" in sql:
             return Result(0, "root\tlocalhost\nblog\tlocalhost\nshop\tlocalhost\n")
         if sql.strip().startswith("SELECT 1"):
@@ -64,6 +70,12 @@ for name, kind in sites:
     else:
         (d / "index.php").write_text("")
 (proj / "legacy" / "web").mkdir()
+for name in ("blog", "client-portal"):   # set up already; shop-api is fresh from Git and shows "Set up"
+    root = (HOME / "Work" / name) if name == "client-portal" else proj / name
+    (root / "vendor").mkdir(parents=True, exist_ok=True); (root / "vendor" / "autoload.php").write_text("")
+    (root / ".env").write_text("APP_KEY=base64:sample\n")
+(proj / "shop-api" / "composer.json").write_text("{}")
+(proj / "blog" / "package.json").write_text('{"scripts": {"dev": "vite"}}')
 (proj / "blog" / "composer.json").write_text(
     '{"require": {"laravel/framework": "^12", "livewire/livewire": "^3"}, "require-dev": {"laravel/pint": "^1"}}')
 other = HOME / "Work" / "client-portal"
@@ -104,6 +116,12 @@ php.write_cli_wrapper("8.4")
 (paths.systemd_user / "pipanel-mysql.service").write_text("")
 ctl.mysql.mysqld = "/bin/true"; (ctl.mysql.datadir / "mysql").mkdir(parents=True)
 type(ctl.mysql).socket = property(lambda self: Path("/run/user/1000/pipanel/mysql.sock"))   # the real location
+(paths.bin / "mailpit").write_text("")                                                         # Mailpit installed
+(paths.systemd_user / "pipanel-mail.service").write_text("")
+(paths.systemd_user / "pipanel-site-blog-vite.service").write_text("")                         # Vite running for blog
+(paths.data / "phpmyadmin").mkdir(parents=True); (paths.data / "phpmyadmin" / "index.php").write_text("")
+ctl.cfg.proxies["next-shop"] = "http://127.0.0.1:3000"
+ctl.cfg.recent_sites = ["blog", "shop-api"]
 (paths.bin / "ngrok").write_text("")                                                           # a verified ngrok token
 cfg_file = ctl.ngrok.config_files[0]; cfg_file.parent.mkdir(parents=True)
 cfg_file.write_text('version: "3"\nagent:\n    authtoken: 2abcDEFghi_1234567890sampleTokenForScreenshots\n')
@@ -120,7 +138,7 @@ app = QApplication([])
 from pipanel.app import create  # noqa: E402
 
 app, win, tray = create(ctl, app)
-OUT = REPO / "docs" / "assets" / "img"
+OUT = Path(os.environ.get("PIPANEL_SHOTS_OUT") or REPO / "docs" / "assets" / "img")
 OUT.mkdir(parents=True, exist_ok=True)
 for old in OUT.glob("*.png"):
     old.unlink()
