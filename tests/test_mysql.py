@@ -9,6 +9,7 @@ def my(paths, runner):
     return MySQL(paths, runner)
 
 
+@pytest.mark.posix
 def test_config_written(my, paths):
     assert my.write_config()
     t = my.cnf.read_text()

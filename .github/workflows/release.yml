@@ -50,7 +50,7 @@ jobs:
       - name: Build
         shell: pwsh
         run: |
-          python -m pip install . pyinstaller
+          python -m pip install ".[ui]" pyinstaller
           pyinstaller --noconfirm packaging/pyinstaller/pipanel.spec
       - name: Start the packaged app
         shell: pwsh
@@ -94,7 +94,7 @@ jobs:
           python-version: "3.12"
       - name: Build
         run: |
-          python -m pip install . pyinstaller
+          python -m pip install ".[ui]" pyinstaller
           PIPANEL_VERSION="${VERSION#v}" pyinstaller --noconfirm packaging/pyinstaller/pipanel.spec
       - name: Start the packaged app
         run: |

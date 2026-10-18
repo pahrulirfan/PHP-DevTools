@@ -58,5 +58,6 @@ jobs:
       - name: Unit tests
         run: python -m pytest -q
       - name: Real services (setup, sites, DNS, PHP versions, database, Mailpit, Redis)
+        if: always()
         run: python tools/ci_run.py "e2e ${{ matrix.name }}" -- python tools/e2e_desktop.py
         timeout-minutes: 40

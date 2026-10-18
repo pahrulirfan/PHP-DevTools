@@ -23,6 +23,7 @@ def _tgz(names):
     return b.getvalue()
 
 
+@pytest.mark.posix
 def test_ngrok_install_and_unit(paths, runner):
     n = Ngrok(paths, runner)
     n.install(lambda u: _tgz(["ngrok"]), "x86_64")
@@ -127,6 +128,7 @@ def test_create_laravel_validation(paths, runner, tmp_path):
 
 
 # ---------- actions ----------
+@pytest.mark.posix
 def test_terminal_cmd():
     p = Path("/x")
     assert terminal_cmd(p, which=lambda t: t if t == "gnome-terminal" else None) == ["gnome-terminal", "--working-directory=/x"]

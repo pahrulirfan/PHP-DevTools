@@ -140,6 +140,10 @@ class MySQL:
         self.paths.logs.mkdir(parents=True, exist_ok=True)
         from . import platform
         if self.init_bin and platform.is_windows():   # mariadb-install-db.exe has its own, shorter option list
+            try:
+                self.datadir.rmdir()   # it creates the data folder itself and refuses an existing one
+            except OSError:
+                pass
             cmd = [self.init_bin, f"--datadir={self.datadir}", f"--port={self.port}", "--silent"]
         elif self.init_bin:   # MariaDB: root gets a normal (empty) password instead of unix_socket auth
             cmd = [self.init_bin, f"--defaults-file={self.cnf}", f"--datadir={self.datadir}",

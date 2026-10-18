@@ -31,6 +31,7 @@ def _zip(names):
     return b.getvalue()
 
 
+@pytest.mark.posix
 def test_install_fnm(paths, runner):
     n = Node(paths, runner)
     urls = []

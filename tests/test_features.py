@@ -369,7 +369,7 @@ def test_install_redis(ctl, paths, runner):
     assert all(r.ok for _, r in steps)
     assert runner.ran("pkexec", str(ctl.priv.helper), "install-redis")
     conf = ctl.redis.conf.read_text()
-    assert "port 6379" in conf and "bind 127.0.0.1" in conf and f"dir {paths.data / 'redis'}" in conf
+    assert "port 6379" in conf and "bind 127.0.0.1" in conf and f'dir "{paths.data / "redis"}"' in conf
     assert "redis-server" in (paths.systemd_user / unit_name("redis")).read_text()
 
 
@@ -399,7 +399,7 @@ def test_dump_gzip(db, runner, tmp_path):
         runner.calls.append(argv)
         if argv[0] == db.engine.dump:
             out = next(a for a in argv if a.startswith("--result-file="))[len("--result-file="):]
-            open(out, "w").write("CREATE TABLE t (id int);\n")
+            open(out, "w", newline="\n").write("CREATE TABLE t (id int);\n")
         return Result(0)
     runner.run = fake
     assert db.dump("blog", dest) == dest
@@ -647,6 +647,7 @@ def test_stopped_tools_are_validated(paths):
 
 
 # ---------- new folders become sites on their own ----------
+@pytest.mark.posix
 def test_watcher_units_follow_the_projects_folders(ctl, tmp_path, paths, runner):
     import sys
     a, b = tmp_path / "projA", tmp_path / "my 100% projects"
@@ -844,7 +845,8 @@ def test_phpmyadmin_install_config_and_php_version(ctl, paths, tmp_path):
     root = ctl.phpmyadmin.root
     assert (root / "index.php").exists() and (root / "js" / "a.js").exists()
     cfg = (root / "config.inc.php").read_text()
-    assert str(ctl.mysql.client_cnf) in cfg and "'auth_type'] = 'config'" in cfg and "AllowNoPassword" in cfg
+    from pipanel.core.adminer import php_str
+    assert php_str(str(ctl.mysql.client_cnf)) in cfg and "'auth_type'] = 'config'" in cfg and "AllowNoPassword" in cfg
     secret = (paths.data / "phpmyadmin-secret").read_text()
     assert len(secret) == 32 and secret in cfg
     conf = (paths.nginx_sites / "phpmyadmin.conf").read_text()

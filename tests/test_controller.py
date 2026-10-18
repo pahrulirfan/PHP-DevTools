@@ -238,7 +238,7 @@ def test_switch_engine_stops_running_one_and_starts_new(ctl, runner, paths, tmp_
     assert [n for n, _ in steps] == ["Stop MySQL 8", "Start MariaDB"]
     assert runner.ran("systemctl", "--user", "stop", "pipanel-mysql.service")
     unit = (paths.systemd_user / "pipanel-mysql.service").read_text()
-    assert "--defaults-file=" in unit and "/mariadb/my.cnf" in unit
+    assert "--defaults-file=" in unit and "mariadb" in unit and "my.cnf" in unit
 
 
 def test_switch_engine_not_installed_only_records_choice(ctl, runner):

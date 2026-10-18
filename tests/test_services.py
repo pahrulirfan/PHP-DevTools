@@ -38,6 +38,7 @@ def test_sync_writes_everything(svc, paths, tmp_path, runner):
     assert not runner.ran("systemctl", "--user", "daemon-reload")
 
 
+@pytest.mark.posix
 def test_unit_contents(svc, paths, tmp_path):
     svc.sync(Config(), [])
     nginx = (paths.systemd_user / unit_name("nginx")).read_text()

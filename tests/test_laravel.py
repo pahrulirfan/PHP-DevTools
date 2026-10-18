@@ -47,6 +47,7 @@ def test_missing_or_broken_composer_json(tools, tmp_path):
     assert declared_packages(tmp_path / "bad") == set()
 
 
+@pytest.mark.posix
 def test_install_runs_composer_then_artisan_with_the_sites_php(tools, runner, project, paths):
     steps = tools.install(project, "8.2", BY_KEY["telescope"])
     assert [n for n, _ in steps] == ["composer require laravel/telescope", "php artisan telescope:install"]
