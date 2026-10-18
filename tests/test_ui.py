@@ -514,18 +514,20 @@ def test_php_page_shows_xdebug(qapp, win, ui_ctl):
     assert ui_ctl.php.xdebug_state("8.3") == "on"
 
 
-@pytest.mark.skipif(__import__("sys").platform == "darwin", reason="macOS reports folder changes late")
 def test_sites_page_shows_a_new_folder_by_itself(qapp, win, ui_ctl, tmp_path):
     win.go("Sites")
     page = page_of(win, "Sites")
     pump(qapp, win, 4)
     from pipanel.ui.pages.sites import SiteRow
-    (tmp_path / "PHPProject" / "fresh").mkdir()
+    projects = tmp_path / "PHPProject"
+    assert str(projects) in page._fs.directories()     # the projects folder is watched
+    (projects / "fresh").mkdir()
     page._fs_timer.setInterval(10)
+    page._fs.directoryChanged.emit(str(projects))      # what the system reports, without its timing
     import time as _t
     for _ in range(100):
         pump(qapp, win, 2)
-        if any(r.site.name == "fresh" for r in page.findChildren(SiteRow)):
+        if any(r.site.name == "fresh" for r in page.findChildren(SiteRow) if r.isVisibleTo(page)):
             break
         _t.sleep(0.02)
     assert "fresh" in [r.site.name for r in page.findChildren(SiteRow) if r.isVisibleTo(page)]
