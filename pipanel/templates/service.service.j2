@@ -4,6 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
+{% if workdir %}
+WorkingDirectory={{ workdir }}
+{% endif %}
 {% for k, v in env.items() %}
 Environment={{ k }}={{ v }}
 {% endfor %}

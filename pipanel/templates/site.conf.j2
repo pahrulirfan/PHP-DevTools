@@ -17,6 +17,13 @@ server {
 
     access_log {{ log_dir }}/{{ name }}-access.log;
     error_log  {{ log_dir }}/{{ name }}-error.log;
+{% if local_only %}
+
+    # a tool of PIPanel: only this computer may open it
+    allow 127.0.0.1;
+    allow ::1;
+    deny all;
+{% endif %}
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;

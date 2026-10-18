@@ -27,6 +27,33 @@ class Site:
         return self.name
 
 
+@dataclass(frozen=True)
+class Proxy:
+    """A *.test name that Nginx forwards to another local server (Vite, Next.js, a Go or Python app, Mailpit)."""
+    name: str
+    target: str           # normalized, e.g. http://127.0.0.1:3000
+    https: bool = False
+    local_only: bool = False   # answer only requests from this computer (tools such as Mailpit)
+    internal: bool = False     # managed by PIPanel itself, not listed on the Sites page
+
+
+_TARGET_RE = re.compile(r"^(https?)://([A-Za-z0-9.-]+|\[[0-9a-fA-F:]+\])(:\d{1,5})?(/[A-Za-z0-9._~/-]*)?$")
+
+
+def normalize_target(target: str) -> str | None:
+    """'3000' -> http://127.0.0.1:3000, 'localhost:5173' -> http://localhost:5173; None when it is not a plain
+    http(s) URL (the result goes into an nginx config, so nothing but host, port and path is accepted)."""
+    t = target.strip().rstrip("/")
+    if re.fullmatch(r"\d{1,5}", t):
+        t = f"http://127.0.0.1:{t}"
+    elif not re.match(r"^https?://", t):
+        t = f"http://{t}"
+    m = _TARGET_RE.match(t)
+    if not m or (m.group(3) and not 0 < int(m.group(3)[1:]) < 65536):
+        return None
+    return t
+
+
 def detect(path: Path) -> tuple[str, Path]:
     """Return (kind, docroot)."""
     if (path / "artisan").is_file() and (path / "public").is_dir():

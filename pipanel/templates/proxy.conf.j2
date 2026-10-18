@@ -1,0 +1,40 @@
+server {
+    listen {{ http_port }};
+{% if https %}
+    listen {{ https_port }} ssl{% if not http2_directive %} http2{% endif %};
+{% if http2_directive %}
+    http2 on;
+{% endif %}
+    ssl_certificate     {{ cert }};
+    ssl_certificate_key {{ key }};
+{% endif %}
+
+    server_name {{ name }}.{{ tld }};
+    client_max_body_size {{ upload_max }};
+
+    access_log {{ log_dir }}/{{ name }}-access.log;
+    error_log  {{ log_dir }}/{{ name }}-error.log;
+{% if local_only %}
+
+    # a tool of PIPanel: only this computer may open it
+    allow 127.0.0.1;
+    allow ::1;
+    deny all;
+{% endif %}
+
+    location / {
+        proxy_pass {{ target }};
+        proxy_http_version 1.1;
+        # the upstream sees its own host (dev servers such as Vite reject unknown host names);
+        # the original one is passed along in X-Forwarded-Host
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 1h;
+        proxy_buffering off;
+    }
+}
