@@ -6,9 +6,13 @@
 param(
     [Parameter(Mandatory = $true)][ValidateSet("setup-dns", "remove-dns", "check")][string]$Command,
     [ValidatePattern("^[a-z][a-z0-9-]{0,30}$")][string]$Tld = "test",
-    [string]$CaFile = ""
+    [string]$CaFile = "",
+    [string]$Log = ""
 )
 $ErrorActionPreference = "Stop"
+# The elevated window is hidden: PIPanel reads what happened from this log
+if ($Log) { Start-Transcript -Path $Log -Force | Out-Null }
+trap { Write-Output "ERROR: $_"; if ($Log) { Stop-Transcript | Out-Null }; exit 1 }
 $namespace = ".$Tld"
 
 function Remove-Ours {
@@ -25,9 +29,9 @@ switch ($Command) {
         if ($CaFile) {
             # only mkcert's own root certificate of this user, and nothing with a private key
             $expected = Join-Path $env:LOCALAPPDATA "mkcert\rootCA.pem"
-            if ((Resolve-Path $CaFile).Path -ne (Resolve-Path $expected).Path) { Write-Error "only $expected may be trusted"; exit 3 }
+            if ((Resolve-Path $CaFile).Path -ne (Resolve-Path $expected).Path) { throw "only $expected may be trusted" }
             $text = Get-Content -Raw $CaFile
-            if ($text -match "PRIVATE KEY" -or ([regex]::Matches($text, "BEGIN CERTIFICATE")).Count -ne 1) { Write-Error "not a single certificate"; exit 3 }
+            if ($text -match "PRIVATE KEY" -or ([regex]::Matches($text, "BEGIN CERTIFICATE")).Count -ne 1) { throw "not a single certificate" }
             Import-Certificate -FilePath $CaFile -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
             Write-Output "PIPanel: HTTPS certificates of mkcert are trusted"
         }
@@ -41,4 +45,5 @@ switch ($Command) {
         if (-not $rule) { exit 1 }
     }
 }
+if ($Log) { Stop-Transcript | Out-Null }
 exit 0

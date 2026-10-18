@@ -30,6 +30,8 @@ MYSQL_SERIES = "8.4"                       # long-term support
 MYSQL_PAGE = "https://dev.mysql.com/downloads/mysql/8.4.html"
 MYSQL_CDN = "https://cdn.mysql.com/Downloads/MySQL-8.4/"
 REDIS_WINDOWS = "https://api.github.com/repos/redis-windows/redis-windows/releases/latest"
+REDIS_WINDOWS_PAGE = "https://github.com/redis-windows/redis-windows/releases/latest"
+REDIS_WINDOWS_ASSET = "https://github.com/redis-windows/redis-windows/releases/download/{tag}/Redis-{tag}-Windows-x64-msys2.zip"
 MKCERT = "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-{os}-{arch}{ext}"
 
 
@@ -214,9 +216,15 @@ class WindowsStack(Stack):
 
     def install_redis(self, fetch: Fetch) -> Result:
         try:
-            rel = json.loads(fetch(REDIS_WINDOWS).decode())
-            asset = next(a for a in rel["assets"] if re.fullmatch(r"Redis-[\d.]+-Windows-x64-msys2\.zip", a["name"]))
-            unpack(fetch(asset["browser_download_url"]), self.root / "redis", strip=1)
+            # the release page names the newest tag; GitHub's API is only the fallback (it rate-limits shared IPs)
+            m = re.search(r"releases/tag/([0-9][0-9.]*)", fetch(REDIS_WINDOWS_PAGE).decode("utf-8", "replace"))
+            if m:
+                url = REDIS_WINDOWS_ASSET.format(tag=m.group(1))
+            else:
+                rel = json.loads(fetch(REDIS_WINDOWS).decode())
+                url = next(a for a in rel["assets"]
+                           if re.fullmatch(r"Redis-[\d.]+-Windows-x64-msys2\.zip", a["name"]))["browser_download_url"]
+            unpack(fetch(url), self.root / "redis", strip=1)
             if not (self.root / "redis" / "redis-server.exe").exists():   # some releases have no top folder
                 found = next((self.root / "redis").rglob("redis-server.exe"), None)
                 if found is None:

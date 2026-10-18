@@ -154,10 +154,8 @@ def test_windows_stack_downloads(windows, paths, runner, monkeypatch):
             {"file_name": "mariadb-11.4.13-winx64.zip", "file_download_url": "http://x/m.zip",
              "checksum": {"sha256sum": hashlib.sha256(maria).hexdigest()}}]}}}).encode(),
         "https://x/m.zip": maria,
-        stack.REDIS_WINDOWS: json.dumps({"assets": [
-            {"name": "Redis-8.10.2-Windows-x64-cygwin.zip", "browser_download_url": "https://x/cyg.zip"},
-            {"name": "Redis-8.10.2-Windows-x64-msys2.zip", "browser_download_url": "https://x/r.zip"}]}).encode(),
-        "https://x/r.zip": redis,
+        stack.REDIS_WINDOWS_PAGE: b'<a href="/redis-windows/redis-windows/releases/tag/8.10.2">8.10.2</a>',
+        stack.REDIS_WINDOWS_ASSET.format(tag="8.10.2"): redis,
     }
     assert st.install_base(files.__getitem__).ok
     assert st.ready() and (paths.bin / "mkcert.exe").exists()
@@ -286,3 +284,20 @@ def test_redis_paths_on_windows(windows, paths):
         "/cygdrive/c/Users/Me/AppData/Local/PIPanel/config/redis/redis.conf"
     r = Redis(paths, server="C:/stack/redis/redis-server.exe")
     assert r.unit_spec()["argv"][1].endswith("/config/redis/redis.conf")
+
+
+def test_transcript_lines():
+    from pipanel.core.privileged import transcript_lines
+    text = """**********************
+Windows PowerShell transcript start
+Start time: 20261018183000
+Username: RUNNER\\runneradmin
+**********************
+PIPanel: .test now resolves through 127.0.0.1
+ERROR: only C:\\Users\\x\\mkcert\\rootCA.pem may be trusted
+**********************
+Windows PowerShell transcript end
+End time: 20261018183001
+**********************"""
+    assert transcript_lines(text) == ("PIPanel: .test now resolves through 127.0.0.1\n"
+                                      "ERROR: only C:\\Users\\x\\mkcert\\rootCA.pem may be trusted")

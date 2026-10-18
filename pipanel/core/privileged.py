@@ -64,6 +64,18 @@ class DesktopPrivileged:
         return HELPER_VERSION
 
 
+def transcript_lines(text: str, keep: int = 12) -> str:
+    """What the script printed, without the header and footer that PowerShell's transcript adds."""
+    out = []
+    for line in text.splitlines():
+        s = line.strip()
+        if not s or s.startswith("*") or "transcript" in s.lower() or re.match(r"^[A-Za-z ]+: \S", s) and \
+                not s.startswith(("ERROR", "PIPanel")):
+            continue
+        out.append(s)
+    return "\n".join(out[-keep:])
+
+
 class WindowsPrivileged(DesktopPrivileged):
     """Runs packaging/windows/pipanel-helper.ps1 elevated (one UAC prompt)."""
 
@@ -82,10 +94,21 @@ class WindowsPrivileged(DesktopPrivileged):
         script = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(self.helper), *args]
         if not elevated:
             return self.runner.run(["powershell", *script])
+        import tempfile
+        fd, log = tempfile.mkstemp(prefix="pipanel-helper-", suffix=".log")
+        import os
+        os.close(fd)
+        script += ["-Log", log]
         quoted = ",".join("'" + a.replace("'", "''") + "'" for a in script)
         ps = (f"$p = Start-Process powershell -Verb RunAs -Wait -PassThru -WindowStyle Hidden "
               f"-ArgumentList {quoted}; exit $p.ExitCode")
-        return self.runner.run(["powershell", "-NoProfile", "-Command", ps], timeout=300)
+        r = self.runner.run(["powershell", "-NoProfile", "-Command", ps], timeout=300)
+        try:
+            text = Path(log).read_text(encoding="utf-8", errors="replace")
+            os.unlink(log)
+        except OSError:
+            text = ""
+        return Result(r.code, r.out + transcript_lines(text), r.err)
 
     def setup_dns(self, tld: str = "test", port: int = 53, ca: Path | None = None) -> Result:
         """One UAC prompt: the DNS rule, and the mkcert root certificate when given."""
