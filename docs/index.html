@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PIPanel: local PHP development for Linux, without Docker</title>
-<meta name="description" content="PIPanel is a desktop app for Linux Mint and Ubuntu that runs Nginx, several PHP versions, MySQL or MariaDB, trusted HTTPS and *.test domains for your Laravel and PHP projects, with no Docker and no daily sudo.">
+<title>PIPanel: local PHP development for Linux, Windows and macOS, without Docker</title>
+<meta name="description" content="PIPanel is a desktop app for Linux, Windows and macOS that runs Nginx, several PHP versions, MySQL or MariaDB, trusted HTTPS and *.test domains for your Laravel and PHP projects, with no Docker and no daily administrator password.">
 <meta name="theme-color" content="#7c3aed">
 <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
 <link rel="preload" href="assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/site.css">
-<meta property="og:title" content="PIPanel: local PHP development for Linux, without Docker">
+<meta property="og:title" content="PIPanel: local PHP development for Linux, Windows and macOS, without Docker">
 <meta property="og:description" content="Nginx, multiple PHP versions, MySQL or MariaDB, HTTPS and *.test domains in one desktop app.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://pahrulirfan.github.io/PHP-DevTools/assets/img/light-sites.png">
@@ -45,7 +45,7 @@
 <!-- ============ HERO ============ -->
 <div class="hero">
   <div class="wrap">
-    <span class="eyebrow">For Linux Mint and Ubuntu</span>
+    <span class="eyebrow">For Linux, Windows and macOS</span>
     <h1>Local PHP development, <em>without Docker</em>.</h1>
     <p class="lead">PIPanel runs Nginx, several PHP versions, MySQL or MariaDB, trusted HTTPS and <code>*.test</code> domains for your Laravel and PHP projects. Install once, then work without opening a terminal or typing <code>sudo</code>.</p>
     <div class="cta">
@@ -54,7 +54,7 @@
     </div>
     <div class="hero-shot"><img data-shot="sites" src="assets/img/light-sites.png" width="1120" height="720" alt="PIPanel Sites page: a list of local sites such as blog.test and shop-api.test with PHP version pickers and HTTPS toggles"></div>
     <ul class="facts">
-      <li>Built for Linux</li><li>No Docker</li><li>Runs as your user</li><li>Free and open source</li>
+      <li>Linux, Windows, macOS</li><li>No Docker</li><li>Runs as your user</li><li>Free and open source</li>
     </ul>
   </div>
 </div>
@@ -64,7 +64,7 @@
   <div class="wrap">
     <div class="kicker">Why PIPanel</div>
     <h2>What you won't get from Herd or Laragon</h2>
-    <p class="sub">Herd is for macOS and Windows, Laragon for Windows. PIPanel brings the same comfort to Linux, and does a few things those apps leave to you.</p>
+    <p class="sub">Herd is for macOS and Windows, Laragon for Windows. PIPanel runs on all three, Linux included, with the same features everywhere, and does a few things those apps leave to you.</p>
     <div class="grid">
       <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg></div>
         <h3>Clone, click, run</h3><p><code>git clone</code> into your projects folder and the site appears by itself. <strong>Set up</strong> runs <code>composer install</code>, creates <code>.env</code>, the key and the database, and migrates or imports the SQL dump from the repository.</p></div>
@@ -82,7 +82,9 @@
     <div class="table-wrap" style="margin-top:30px"><table>
       <thead><tr><th></th><th>PIPanel</th><th>Laravel Herd</th><th>Laragon</th></tr></thead>
       <tbody>
-        <tr><td>Linux</td><td><strong>Yes</strong> (Mint, Ubuntu)</td><td>No (macOS, Windows)</td><td>No (Windows)</td></tr>
+        <tr><td>Linux</td><td><strong>Yes</strong> (Mint, Ubuntu)</td><td>No</td><td>No</td></tr>
+        <tr><td>Windows</td><td><strong>Yes</strong></td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>macOS</td><td><strong>Yes</strong></td><td>Yes</td><td>No</td></tr>
         <tr><td>Mail inbox, Redis, log viewer, Xdebug</td><td><strong>Included</strong></td><td>Herd Pro (paid)</td><td>Mail catcher included</td></tr>
         <tr><td>Set up a cloned project in one click</td><td><strong>Yes</strong></td><td>No</td><td>No</td></tr>
         <tr><td>Background Vite, queue, scheduler per project</td><td><strong>Yes</strong></td><td>No</td><td>No</td></tr>
@@ -133,15 +135,23 @@
   <div class="wrap">
     <div class="kicker">How it works</div>
     <h2>Real services, managed for you</h2>
-    <p class="sub">PIPanel is a friendly control panel for ordinary Linux software. Nothing is hidden in a container, and everything it starts runs as <strong>your</strong> user through <code>systemctl --user</code>.</p>
+    <p class="sub">PIPanel is a friendly control panel for ordinary software: Nginx, PHP, MySQL or MariaDB. Nothing is hidden in a container, and everything it starts runs as <strong>your</strong> user.</p>
     <div class="flow" role="img" aria-label="Request path: browser, dnsmasq, Nginx, PHP-FPM, database">
       <div class="step"><b>Browser</b><small>blog.test</small></div><span class="arrow">→</span>
-      <div class="step"><b>dnsmasq</b><small>*.test → 127.0.0.1</small></div><span class="arrow">→</span>
+      <div class="step"><b>DNS</b><small>*.test → 127.0.0.1</small></div><span class="arrow">→</span>
       <div class="step"><b>Nginx</b><small>one config per site</small></div><span class="arrow">→</span>
-      <div class="step"><b>PHP-FPM</b><small>the version you chose</small></div><span class="arrow">→</span>
+      <div class="step"><b>PHP</b><small>the version you chose</small></div><span class="arrow">→</span>
       <div class="step"><b>MySQL / MariaDB</b><small>your own instance</small></div>
     </div>
-    <p style="margin-top:22px">Because the services are systemd user units, they survive closing the window, restart on failure, and write logs you can read in the app. The only thing that needs administrator rights is the one-time setup and installing or removing packages, and that goes through a small, fixed-purpose helper (see <a href="#security">Files and security</a>).</p>
+    <p style="margin-top:22px">The services survive closing the window, restart when they fail, and write logs you can read in the app. On Linux they are systemd user units; on Windows and macOS a small PIPanel agent does the same job and starts at login. Administrator rights are needed only once, for the DNS rule of <code>.test</code> and the HTTPS certificate authority (and on Linux for package installs), through a small, fixed-purpose helper (see <a href="#security">Files and security</a>).</p>
+    <div class="table-wrap" style="margin-top:22px"><table>
+      <thead><tr><th></th><th>Linux</th><th>Windows</th><th>macOS</th></tr></thead>
+      <tbody>
+        <tr><td>Services</td><td>systemd user units</td><td>PIPanel's agent</td><td>PIPanel's agent (LaunchAgent)</td></tr>
+        <tr><td><code>*.test</code></td><td>dnsmasq + systemd-resolved</td><td>PIPanel's DNS + a Name Resolution Policy rule</td><td>PIPanel's DNS + <code>/etc/resolver/test</code></td></tr>
+        <tr><td>PHP</td><td>PHP-FPM, <code>ondrej/php</code></td><td>php-cgi pools, windows.php.net builds</td><td>PHP-FPM, Homebrew (<code>shivammathur/php</code>)</td></tr>
+        <tr><td>Databases, Redis</td><td>apt</td><td>official zip downloads</td><td>Homebrew</td></tr>
+      </tbody></table></div>
   </div>
 </section>
 
@@ -196,21 +206,30 @@
     <div class="doc">
 
 <h2 id="install">Install</h2>
-<p>PIPanel is tested on <strong>Linux Mint 22.3</strong> (Ubuntu 24.04 base, Cinnamon). It needs a systemd-based Debian/Ubuntu system with <code>apt</code> and <code>systemd-resolved</code>, and Python 3.10 or newer.</p>
+<p>Download the package for your system from the <a href="https://github.com/pahrulirfan/PHP-DevTools/releases/latest">latest release</a>, open <strong>PIPanel</strong>, and click <strong>Run setup</strong> in the banner once.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>System</th><th>Package</th><th>How</th></tr></thead>
+<tbody>
+<tr><td>Linux Mint 22, Ubuntu 24.04</td><td><code>pipanel_&lt;version&gt;~ubuntu24.04_amd64.deb</code></td><td><code>sudo apt install ./pipanel_*.deb</code></td></tr>
+<tr><td>Linux Mint 21, Ubuntu 22.04</td><td><code>pipanel_&lt;version&gt;~ubuntu22.04_amd64.deb</code></td><td>same</td></tr>
+<tr><td>Windows 10 and 11, 64-bit</td><td><code>PIPanel-&lt;version&gt;-windows-x64-setup.exe</code></td><td>run it (or unzip the portable <code>.zip</code>)</td></tr>
+<tr><td>macOS 12 or newer</td><td><code>PIPanel-&lt;version&gt;-macos-apple-silicon.dmg</code> or <code>-intel.dmg</code></td><td>drag PIPanel to Applications; needs <a href="https://brew.sh">Homebrew</a></td></tr>
+</tbody></table></div>
+<p><strong>Run setup</strong> then does, on each system:</p>
+<ul>
+  <li><strong>Linux:</strong> adds the <code>ondrej/php</code> repository and installs Nginx, dnsmasq, mkcert and PHP with the extensions Laravel needs; turns off the system copies of Nginx, MySQL and PHP-FPM; lets programs of your user listen on ports 80 and 443 and routes <code>*.test</code> to PIPanel's DNS. One password dialog.</li>
+  <li><strong>Windows:</strong> downloads Nginx (nginx.org), PHP (windows.php.net, checksum verified) and mkcert into <code>%LOCALAPPDATA%\PIPanel</code>. One administrator prompt adds the DNS rule for <code>.test</code> and trusts the HTTPS certificate authority.</li>
+  <li><strong>macOS:</strong> installs Nginx and PHP with Homebrew, as you. One password dialog creates <code>/etc/resolver/test</code> and trusts the HTTPS certificate authority.</li>
+  <li><strong>Everywhere:</strong> creates the local certificate authority, installs Composer, puts <code>php</code>, <code>composer</code> and <code>pipanel</code> on your terminal's path, and starts the services.</li>
+</ul>
+<div class="note"><p><strong>The packages are not code-signed.</strong> Windows SmartScreen may say "Windows protected your PC": click <em>More info → Run anyway</em>. macOS may say the app "cannot be opened": right-click PIPanel in Applications, choose <em>Open</em>, then <em>Open</em> again. Both happen once.</p></div>
+<h3>From source (Linux)</h3>
 <pre><code>$ sudo apt install -y git python3-venv python3-pip libxcb-cursor0
 $ git clone https://github.com/pahrulirfan/PHP-DevTools.git
 $ cd PHP-DevTools
 $ ./install.sh</code></pre>
-<p><code>install.sh</code> creates a virtual environment, installs the app, adds <strong>PIPanel</strong> to your application menu, and installs the small root helper (this is the only step that asks for your <code>sudo</code> password).</p>
-<p>Open <strong>PIPanel</strong> from the menu and click <strong>Run setup</strong> in the banner. A system password dialog appears once. Setup then:</p>
-<ul>
-  <li>adds the <code>ondrej/php</code> repository and installs Nginx, dnsmasq, mkcert and PHP with the extensions Laravel needs;</li>
-  <li>turns off the system copies of Nginx, MySQL and PHP-FPM, so only PIPanel's own instances run;</li>
-  <li>lets programs started by your user listen on ports 80 and 443, and routes <code>*.test</code> to PIPanel's DNS;</li>
-  <li>creates a local certificate authority for trusted HTTPS, installs Composer, and starts the services.</li>
-</ul>
-<p>To update PIPanel later, run <code>git pull</code> and <code>./install.sh</code> again, then quit PIPanel from the tray menu and open it again.</p>
-<div class="note"><p>You can read exactly what runs as root in <a href="https://github.com/pahrulirfan/PHP-DevTools/blob/main/packaging/pipanel-helper"><code>packaging/pipanel-helper</code></a>. It is one short file that accepts a fixed list of commands.</p></div>
+<p><code>install.sh</code> creates a virtual environment, adds <strong>PIPanel</strong> to your application menu, and installs the small root helper (the only step that asks for your <code>sudo</code> password). After <code>git pull</code>, run it again, then quit PIPanel from the tray menu and open it again.</p>
+<div class="note"><p>You can read exactly what runs as administrator: <a href="https://github.com/pahrulirfan/PHP-DevTools/blob/main/packaging/pipanel-helper"><code>packaging/pipanel-helper</code></a> on Linux and <a href="https://github.com/pahrulirfan/PHP-DevTools/blob/main/packaging/windows/pipanel-helper.ps1"><code>packaging/windows/pipanel-helper.ps1</code></a> on Windows. Each is one short file that accepts a fixed list of commands.</p></div>
 
 <h2 id="quickstart">Your first site</h2>
 <ol>
@@ -331,8 +350,9 @@ $ pipanel sync              # serve new project folders now</code></pre>
 
 <h2 id="security">Files and security</h2>
 <h3>Where things live</h3>
+<p>On Linux, PIPanel follows the XDG folders below. On Windows everything lives in <code>%LOCALAPPDATA%\PIPanel\{config,data,state,run}</code>, on macOS in <code>~/Library/PIPanel/{config,data,state,run}</code>, with the same layout inside; the services are described in <code>config/units/</code> there instead of systemd units.</p>
 <div class="table-wrap"><table>
-<thead><tr><th>What</th><th>Where</th></tr></thead>
+<thead><tr><th>What</th><th>Where (Linux)</th></tr></thead>
 <tbody>
 <tr><td>Settings</td><td><code>~/.config/pipanel/config.json</code></td></tr>
 <tr><td>Generated Nginx, PHP-FPM, DNS and database config</td><td><code>~/.config/pipanel/{nginx,php,dns,mysql,mariadb}/</code></td></tr>
@@ -345,10 +365,12 @@ $ pipanel sync              # serve new project folders now</code></pre>
 <tr><td>Sockets and PID files</td><td><code>$XDG_RUNTIME_DIR/pipanel/</code> (cleaned at logout)</td></tr>
 <tr><td>Root helper</td><td><code>/usr/lib/pipanel/pipanel-helper</code> and a polkit policy</td></tr>
 </tbody></table></div>
-<h3>What runs as root</h3>
-<p>Only the helper, started through <code>pkexec</code> (the normal graphical password dialog). It is owned by root, so it cannot be edited by your user or by other programs, and it accepts only these commands: <code>setup</code>, <code>install-php</code>, <code>remove-php</code>, <code>install-ext</code>, <code>install-database</code>, <code>install-redis</code>, <code>trust-ca</code>, <code>untrust-ca</code> and <code>disable-system-services</code>. Doctor tells you when the installed helper is older than the app; run <code>./install.sh</code> again to update it. Each argument is validated (for example a PHP version must match <code>8.N</code>), and the user to configure is taken from the system's <code>PKEXEC_UID</code>, never from arguments. <code>trust-ca</code> only accepts your own mkcert root certificate, and refuses anything that contains a private key.</p>
-<p>Everything else, including Nginx, PHP, the database, Redis, Mailpit and the tunnels, runs as you. Mailpit, Adminer and phpMyAdmin answer only requests from this computer.</p>
+<h3>What runs as administrator</h3>
+<p><strong>Linux:</strong> only the helper, started through <code>pkexec</code> (the normal graphical password dialog). It is owned by root, so it cannot be edited by your user or by other programs, and it accepts only these commands: <code>setup</code>, <code>install-php</code>, <code>remove-php</code>, <code>install-ext</code>, <code>install-database</code>, <code>install-redis</code>, <code>trust-ca</code>, <code>untrust-ca</code> and <code>disable-system-services</code>. Doctor tells you when the installed helper is older than the app; run <code>./install.sh</code> again to update it. Each argument is validated (for example a PHP version must match <code>8.N</code>), and the user to configure is taken from the system's <code>PKEXEC_UID</code>, never from arguments. <code>trust-ca</code> only accepts your own mkcert root certificate, and refuses anything that contains a private key.</p>
+<p><strong>Windows:</strong> only <code>pipanel-helper.ps1</code>, installed with the app in Program Files (where only administrators can change it) and started through the UAC prompt. It adds or removes PIPanel's DNS rule for <code>.test</code> and trusts mkcert's root certificate of the current user, and refuses any other file or anything with a private key. <strong>macOS:</strong> the same two steps (<code>/etc/resolver/test</code> and the System keychain) through the system's password dialog.</p>
+<p>Everything else, including Nginx, PHP, the database, Redis, Mailpit and the tunnels, runs as you. Mailpit, Adminer and phpMyAdmin answer only requests from this computer; on Windows and macOS Nginx itself listens on <code>127.0.0.1</code> only.</p>
 <h3>Uninstall</h3>
+<p><strong>Windows:</strong> Settings → Apps → PIPanel → Uninstall (it stops the services first). <strong>macOS:</strong> quit PIPanel, run <code>pipanel stop</code>, and drag the app to the Trash. <strong>Linux package:</strong> <code>sudo apt remove pipanel</code>. <strong>Linux from source:</strong></p>
 <pre><code>$ ./uninstall.sh</code></pre>
 <p>Removes the services, launcher, shell blocks, the root helper and the system files that setup created. System packages (Nginx, PHP, MariaDB and so on) are left alone, and your data stays in <code>~/.config/pipanel</code> and <code>~/.local/share/pipanel</code> until you delete it.</p>
 
@@ -357,6 +379,10 @@ $ pipanel sync              # serve new project folders now</code></pre>
 <p>PIPanel's DNS or Nginx is not running. Open <strong>Sites</strong> and click <strong>Start services</strong> in the banner, or use <strong>Services → Start all</strong>. If that fails, the message explains why, most often a port conflict (next question). <strong>Services → Doctor</strong> shows the state of every part.</p></details>
 <details><summary>Start services says port 80 or 443 is already in use</summary>
 <p>Another program holds the port. PIPanel names it, and it is usually a Docker container such as DDEV's router (<code>ddev poweroff</code> stops it) or Apache. Either stop that program, or move PIPanel to other ports in <strong>Settings → Web ports</strong> (for example 8080 and 8443).</p></details>
+<details><summary>Windows: port 53 or 80 is already in use</summary>
+<p>PIPanel's DNS answers on <code>127.0.0.1:53</code> because the Windows DNS client can only ask port 53; some VPN clients use it too, and Doctor names them. Port 80 is usually IIS or another web server: stop it, or choose other ports in <strong>Settings → Web ports</strong>.</p></details>
+<details><summary>macOS: does PIPanel need Homebrew?</summary>
+<p>Yes. Nginx, PHP, MariaDB or MySQL and Redis come from Homebrew, installed as you. Install it from <a href="https://brew.sh">brew.sh</a> before running the setup.</p></details>
 <details><summary>A new Laravel project shows "Table 'sessions' doesn't exist"</summary>
 <p>New Laravel projects keep sessions in the database, so the migrations must run once. Creating a project from PIPanel does that for you. For an existing project, open the <strong>Laravel</strong> page and click <strong>Run migrations</strong>.</p></details>
 <details><summary>A project I cloned from Git shows an error</summary>
@@ -373,8 +399,8 @@ $ pipanel sync              # serve new project folders now</code></pre>
 <p>Not with the Cloudflare quick tunnel. ngrok refuses to start a tunnel without an account's authtoken (error <code>ERR_NGROK_4018</code>). Save the token on the <strong>Share</strong> page and click <strong>Verify token</strong>; sharing is enabled only after ngrok accepts it.</p></details>
 <details><summary>Should I choose MySQL or MariaDB?</summary>
 <p>Choose the one your production server uses. Many shared hosts run MariaDB, while many VPS and cloud setups run MySQL 8. Both work with Laravel, and you can keep both installed and switch (they use separate data folders).</p></details>
-<details><summary>Can I use Apache, or another operating system?</summary>
-<p>Not at the moment. PIPanel uses Nginx (like Laravel Herd) and has only been tested on Linux Mint 22.3. Ubuntu 22.04 and 24.04 are expected to work; other distributions are not supported. Applications that depend on <code>.htaccess</code> rules need an equivalent Nginx configuration.</p></details>
+<details><summary>Can I use Apache, or another Linux distribution?</summary>
+<p>Not at the moment. PIPanel uses Nginx (like Laravel Herd). On Linux it supports Ubuntu 22.04 and 24.04 and the Linux Mint versions based on them. Applications that depend on <code>.htaccess</code> rules need an equivalent Nginx configuration.</p></details>
 <details><summary>Can it run alongside Docker or DDEV?</summary>
 <p>Yes, as long as they do not use the same ports. They can share the machine, but only one program can listen on port 80 at a time.</p></details>
 
@@ -385,17 +411,18 @@ $ .venv/bin/pytest                        # no root and no Nginx needed
 $ .venv/bin/python tools/screenshots.py   # re-render the screenshots in docs/assets/img
 $ .venv/bin/python -m pipanel</code></pre>
 <p>The code is split on purpose: <code>pipanel/core</code> never imports Qt and is tested without a display; the UI only talks to <code>core.controller.Controller</code>. Services, config and files are written through small modules (<code>services.py</code>, <code>php.py</code>, <code>mysql.py</code>, <code>laravel.py</code>, <code>ngrok.py</code>) that take a fake <code>Runner</code> in tests.</p>
-<p>Besides the automated tests, <code>tools/e2e_*.py</code> run the real thing without root: Nginx and PHP-FPM serving a site over HTTP and HTTPS, MySQL and MariaDB logins, Composer, fnm and ngrok, proxies, Mailpit, Adminer and phpMyAdmin, background processes, the folder watcher, and (with <code>E2E_TUNNEL=1</code> and <code>E2E_WORDPRESS=1</code>) a public Cloudflare tunnel and a WordPress install on a throwaway MariaDB. They use their own unit prefix, so they never touch a real installation.</p>
+<p>Besides the automated tests, <code>tools/e2e_*.py</code> run the real thing without root: Nginx and PHP-FPM serving a site over HTTP and HTTPS, MySQL and MariaDB logins, Composer, fnm and ngrok, proxies, Mailpit, Adminer and phpMyAdmin, background processes, the folder watcher, and (with <code>E2E_TUNNEL=1</code> and <code>E2E_WORDPRESS=1</code>) a public Cloudflare tunnel and a WordPress install on a throwaway MariaDB. They use their own unit prefix, so they never touch a real installation. <code>tools/e2e_desktop.py</code> does the same on Windows and macOS (real downloads or Homebrew, the agent, DNS through the system resolver, two PHP versions, MariaDB, Mailpit and Redis). GitHub Actions runs the unit tests on all three systems and the real-service checks on Windows and macOS for every push; a <code>v*</code> tag builds and tests the <code>.deb</code> packages, the Windows installer and the macOS app and publishes them as a release.</p>
 <p>Read the full design notes in <a href="https://github.com/pahrulirfan/PHP-DevTools/blob/main/PLAN.md">PLAN.md</a>.</p>
 
 <h2 id="status">Status and known limits</h2>
 <ul>
-  <li>Tested on Linux Mint 22.3 (Cinnamon, Ubuntu 24.04 base). The automated suite has more than 380 tests; the real-service scripts cover the web stack, both databases, the tools, the folder watcher and the downloads.</li>
+  <li>Used daily on Linux Mint 22.3 (Cinnamon, Ubuntu 24.04 base). The automated suite has more than 400 tests on Linux, Windows and macOS; the real-service scripts cover the web stack, both databases, the tools, the folder watcher and the downloads.</li>
+  <li>Windows and macOS are tested on GitHub's Windows Server and macOS runners with the real services. They have had less use on real desktops so far: please report what you find.</li>
+  <li>The packages are not code-signed (see <a href="#install">Install</a>).</li>
   <li>Following the system theme on Cinnamon relies on a <code>gsettings</code> fallback because Qt does not report it there.</li>
   <li>Cloudflare quick tunnels are tested end to end. The ngrok failure paths (no token, invalid token) are checked against ngrok's servers; a successful ngrok tunnel needs a real account and is exercised by you, not by the tests.</li>
-  <li>Installing Redis and the other root helper commands need root, so they are covered by dry-run tests of the helper.</li>
+  <li>On Linux, installing Redis and the other root helper commands need root, so they are covered by dry-run tests of the helper.</li>
   <li>PostgreSQL is not supported yet.</li>
-  <li>Not yet packaged as a <code>.deb</code> or AppImage.</li>
 </ul>
 
     </div>

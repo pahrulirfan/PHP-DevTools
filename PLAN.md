@@ -2,7 +2,7 @@
 
 Development plan for a desktop app for Laravel/PHP developers on Linux Mint, with an experience like Laravel Herd on the Mac. The name **PIPanel** stands for **P**ahrul **I**rfan **Panel**.
 
-Status: **Stage 1–4 code is complete, more than 380 automated tests pass, and it has been tested for real on Linux Mint 22.3** without root: Nginx 1.24 + PHP-FPM 8.3 + dnsmasq + **MySQL 8.0 and MariaDB 10.11** as `systemctl --user` units (HTTP, mkcert HTTPS, Laravel routing, version switch/reload, database login over TCP), Composer `require`/`remove` through a site's PHP, plus real downloads of Composer, fnm (+ Node 22), and ngrok. **Not yet tested** (needs root/GUI): `pkexec` + helper + polkit, `apt`/PPA, the `systemd-resolved` drop-in, database AppArmor, `mkcert -install` into NSS/system, and theme detection on Cinnamon. The real-test scripts are in `tools/e2e_*.py`.
+Status: **Stage 1–5 code is complete (Linux, Windows, macOS), more than 400 automated tests pass, and it has been tested for real on Linux Mint 22.3** without root: Nginx 1.24 + PHP-FPM 8.3 + dnsmasq + **MySQL 8.0 and MariaDB 10.11** as `systemctl --user` units (HTTP, mkcert HTTPS, Laravel routing, version switch/reload, database login over TCP), Composer `require`/`remove` through a site's PHP, plus real downloads of Composer, fnm (+ Node 22), and ngrok. **Not yet tested** (needs root/GUI): `pkexec` + helper + polkit, `apt`/PPA, the `systemd-resolved` drop-in, database AppArmor, `mkcert -install` into NSS/system, and theme detection on Cinnamon. The real-test scripts are in `tools/e2e_*.py`.
 
 ---
 
@@ -349,6 +349,24 @@ Changing a site's PHP version = change `php_socket`, run `nginx -t`, then reload
 - [ ] Distribution package
 
 **Done when:** a project cloned into the projects folder opens at `name.test` without touching the app, one click makes it run, and a crash says why.
+
+### Stage 5: Windows, macOS, packages
+- [x] `core/platform.py`: one code base; `PIPANEL_PLATFORM` forces a platform in tests
+- [x] `core/supervisor.py`: services are specs (`argv`, `env`, `workdir`, `dirs`, `reload`); `SystemdSupervisor` writes user units (Linux), `AgentSupervisor` hands them to the agent (Windows, macOS)
+- [x] `core/agent.py` (`pipanel _agent`): starts, stops, reloads, restarts on failure (5 in 30 s marks a service failed), logs to `logs/units/<name>.log`, starts enabled services at login (Run key / LaunchAgent), adopts services of a previous agent, watches the projects folders; requests and answers are files, no socket
+- [x] `core/dnsd.py` (`pipanel _dns`): `*.test` -> 127.0.0.1 for Windows (NRPT rule, port 53: the Windows client cannot use another port) and macOS (`/etc/resolver/test`, port 5354)
+- [x] Windows PHP: official windows.php.net builds (checksum from `releases.json`), a pool of `php-cgi.exe` per version on TCP ports (`core/fcgipool.py`, nginx `upstream`), extensions as DLLs enabled through PIPanel's conf.d; Xdebug from xdebug.org and other extensions from PECL's Windows builds
+- [x] macOS PHP: Homebrew kegs from `shivammathur/php` (`php@8.x`), PHP-FPM like Linux; extensions from `shivammathur/extensions`
+- [x] `core/stack.py`: where Nginx, the databases, Redis and mkcert come from (apt / downloads / Homebrew); Windows downloads nginx.org's stable zip, MariaDB 11.4 LTS (REST API, SHA-256) or MySQL 8.4 LTS, Redis from redis-windows
+- [x] One administrator step on Windows (`packaging/windows/pipanel-helper.ps1` in Program Files, UAC) and macOS (password dialog): the DNS rule and trusting mkcert's CA, in a single prompt
+- [x] Paths: `%LOCALAPPDATA%\PIPanel`, `~/Library/PIPanel` (no spaces: socket paths go into nginx and PHP-FPM configs); nginx paths quoted and with forward slashes; Nginx listens on 127.0.0.1 on Windows and macOS (no firewall prompt)
+- [x] `php`/`composer`/`wp` on Windows: `.cmd` files calling `pipanel _run`, which picks the site's PHP version like the shell wrapper
+- [x] Packages: `.deb` per Ubuntu release with a trimmed Qt (`packaging/build-deb.sh`, `prune_qt.py`, ldd-checked), PyInstaller app (Windows: windowed `PIPanel.exe` + console `pipanel-cli.exe`; macOS: `PIPanel.app`), Inno Setup installer, `.dmg`
+- [x] GitHub Actions: unit tests on Linux (3.10, 3.12), Windows, macOS; real services on Windows and macOS (`tools/e2e_desktop.py`); a `v*` tag builds, installs/starts and publishes every package
+- [ ] Code signing (Windows, macOS notarization)
+- [ ] PostgreSQL
+
+**Done when:** the same app installs from one package on Mint, Windows and macOS, and a site opens at `name.test` after Run setup.
 
 ## 9. Testing
 
