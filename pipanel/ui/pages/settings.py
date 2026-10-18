@@ -32,13 +32,18 @@ class SettingsPage(Page):
         th.body.addLayout(row)
         self.body.addWidget(th)
 
-        run = Card("At login")
+        run = Card("In the background")
         self.t_app = Toggle()
         self.t_app.clicked.connect(lambda on: ctl.set_autostart_app(on))
         self.t_svc = Toggle()
         self.t_svc.clicked.connect(self.set_svc)
         run.body.addLayout(hbox(label("Open PIPanel (in the tray) at login"), None, self.t_app))
-        run.body.addLayout(hbox(label("Start Nginx, PHP-FPM, and DNS automatically at login"), None, self.t_svc))
+        self.t_notify = Toggle()
+        self.t_notify.clicked.connect(self.set_notify)
+        run.body.addLayout(hbox(label("Notify me when a service stops working (with the reason and a fix)"), None,
+                                self.t_notify))
+        run.body.addLayout(hbox(label("Start the services automatically at login (web server, PHP, and the "
+                                      "database, Mailpit and Redis unless you stopped them)"), None, self.t_svc))
         self.body.addWidget(run)
 
         self.folders = Card("Projects folders")
@@ -69,6 +74,7 @@ class SettingsPage(Page):
         self.radios[ctl.cfg.theme].setChecked(True)
         self.t_app.setChecked(autostart.enabled(ctl.config_home))
         self.t_svc.setChecked(ctl.cfg.autostart_services)
+        self.t_notify.setChecked(ctl.cfg.notify)
         self.http.setValue(ctl.cfg.http_port)
         self.https.setValue(ctl.cfg.https_port)
         lay = self.folders.body
@@ -130,6 +136,10 @@ class SettingsPage(Page):
             for w in rep.warnings:
                 self.win.toast(w)
         self.run(lambda: self.ctl.set_ports(http, https), done=done, label="Applying ports…")
+
+    def set_notify(self, on: bool) -> None:
+        self.ctl.cfg.notify = on
+        self.ctl.save()
 
     def set_svc(self, on: bool) -> None:
         self.run(lambda: self.ctl.set_autostart_services(on))

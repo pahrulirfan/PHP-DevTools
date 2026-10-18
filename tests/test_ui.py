@@ -111,14 +111,19 @@ def test_tasks_callbacks_on_main_thread(qapp):
 
 
 # ---------- main window ----------
+import tempfile as _tempfile
+from pathlib import Path as _Path
+THEME_CACHE = _Path(_tempfile.mkdtemp(prefix="pipanel-theme-"))   # same files for every window: same stylesheet
 @pytest.fixture
 def win(qapp, ui_ctl, tmp_path):
-    tm = theme.ThemeManager(qapp, "light", cache_dir=tmp_path / "theme")
+    tm = theme.ThemeManager(qapp, "light", cache_dir=THEME_CACHE)
     w = MainWindow(ui_ctl, tm)
     w.show()
     yield w
     w.quitting = True
     w.close()
+    w.monitor._timer.stop()   # old windows stay alive (deleting them crashes PySide at exit); keep them quiet
+    w.tasks.wait(2000)
 
 
 def test_every_page_renders(qapp, win):
@@ -128,7 +133,7 @@ def test_every_page_renders(qapp, win):
         pump(qapp, win, 6)
         titles.append(page.title)
         assert win.title.text() == page.title
-    assert titles == ["Sites", "Laravel", "PHP", "Node", "Database", "Share", "Services", "Logs", "Settings"]
+    assert titles == ["Sites", "Laravel", "PHP", "Node", "Database", "Mail", "Share", "Services", "Logs", "Settings"]
 
 
 def test_sites_page_lists_sites(qapp, win):
@@ -354,3 +359,415 @@ def test_settings_page_applies_web_ports(qapp, win, ui_ctl):
     page.apply_ports()
     pump(qapp, win, 15)
     assert (ui_ctl.cfg.http_port, ui_ctl.cfg.https_port) == (8080, 8443)
+
+
+# ---------- tray, sidebar status, new pages ----------
+def active_runner(runner, active: set[str]):
+    from pipanel.core.services import unit_name
+
+    def run(argv, **kw):
+        runner.calls.append([str(a) for a in argv])
+        if argv[:3] == ["systemctl", "--user", "is-active"]:
+            names = [str(a) for a in argv[3:]]
+            return Result(0, "\n".join("active" if n in {unit_name(s) for s in active} else "inactive"
+                                      for n in names) + "\n")
+        return Result(0)
+    runner.run = run
+
+
+def test_tray_menu_lists_running_services_and_php_users(qapp, win, ui_ctl, runner):
+    from pipanel.ui.tray import Tray
+    active_runner(runner, {"nginx", "dns", "php8.3"})
+    tray = Tray(ui_ctl, win, qapp, win.monitor)
+    tray.about_to_show()
+    texts = [a.text() for a in tray.menu.actions()]
+    assert "Services: 3 of 3 running" in texts
+    php = next(a for a in tray.menu.actions() if a.text().startswith("PHP-FPM 8.3"))
+    assert "blog, plain" in php.text() and "(running)" in php.text()
+    from pipanel.ui.tray import names_hint
+    assert names_hint([f"site{i}" for i in range(250)]) == "250 sites"
+    assert names_hint(["a-very-long-project-name-indeed"]) == "a-very-long-proje…"
+    assert [a.text() for a in php.menu().actions()] == ["Stop", "Restart"]
+    assert not any(t.startswith("PHP-FPM 8.2") for t in texts)   # unused and stopped: hidden
+    default = next(a for a in tray.menu.actions() if a.text().startswith("Default PHP"))
+    checked = [a.text() for a in default.menu().actions() if a.isChecked()]
+    assert checked and checked[0].startswith("PHP 8.3")
+    assert "Quit" in texts and tray.icon.toolTip() == "PIPanel: 3 of 3 services running"
+
+
+def test_tray_start_action_runs_in_background(qapp, win, ui_ctl, runner):
+    from pipanel.core.services import unit_name
+    from pipanel.ui.tray import Tray
+    active_runner(runner, {"dns"})
+    tray = Tray(ui_ctl, win, qapp, win.monitor)
+    tray.about_to_show()
+    nginx = next(a for a in tray.menu.actions() if a.text().startswith("Nginx"))
+    assert "(not created)" in nginx.text() and nginx.menu().actions()[0].text() == "Start"
+    nginx.menu().actions()[0].trigger()
+    pump(qapp, win, 10)
+    assert ["systemctl", "--user", "start", unit_name("nginx")] in runner.calls
+
+
+def test_sidebar_status_shows_running_services(qapp, win, ui_ctl, runner):
+    active_runner(runner, {"nginx", "php8.3"})
+    win.monitor.refresh()
+    pump(qapp, win, 15)
+    side = win.side_status
+    texts = [w.text() for w in side.findChildren(type(side.head))]
+    assert "Services  ·  2/3 running" in texts and "Nginx" in texts and "PHP 8.3" in texts
+    assert "PHP 8.2" not in texts
+    win.go("Settings")
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QMouseEvent
+    ev = QMouseEvent(QMouseEvent.MouseButtonRelease, QPointF(5, 5), QPointF(5, 5), Qt.LeftButton, Qt.LeftButton,
+                     Qt.NoModifier)
+    side.mouseReleaseEvent(ev)
+    assert win.title.text() == "Services"
+
+
+def test_sites_page_lists_proxies(qapp, win, ui_ctl):
+    ui_ctl.add_proxy("next", "3000")
+    win.go("Sites")
+    page = page_of(win, "Sites")
+    page.refresh()
+    pump(qapp, win, 4)
+    from pipanel.ui.pages.sites import ProxyRow
+    rows = page.findChildren(ProxyRow)
+    assert [r.proxy.name for r in rows] == ["next"]
+
+
+def test_mail_page_installs_mailpit(qapp, win, ui_ctl):
+    import io as _io
+    import tarfile as _tar
+    b = _io.BytesIO()
+    with _tar.open(fileobj=b, mode="w:gz") as t:
+        info = _tar.TarInfo("mailpit"); info.size = 3
+        t.addfile(info, _io.BytesIO(b"BIN"))
+    ui_ctl.fetch = lambda u: b.getvalue()
+    win.go("Mail")
+    page = page_of(win, "Mail")
+    pump(qapp, win, 4)
+    assert not page.install_btn.isHidden()
+    page.install()
+    pump(qapp, win, 20)
+    assert ui_ctl.mailpit.installed() and page.install_btn.isHidden() and not page.inbox_btn.isHidden()
+
+
+def test_laravel_page_starts_a_process(qapp, win, ui_ctl, runner, monkeypatch):
+    from pipanel.core.services import unit_name
+    monkeypatch.setattr(ui_ctl.services, "failures", lambda names, **kw: {})
+    win.go("Laravel")
+    page = page_of(win, "Laravel")
+    page.refresh()
+    pump(qapp, win, 4)
+    assert set(page.proc_widgets) == {"queue", "schedule"}
+    dot, tg = page.proc_widgets["queue"]
+    tg.click()
+    pump(qapp, win, 15)
+    assert ["systemctl", "--user", "restart", unit_name("site-blog-queue")] in runner.calls
+
+
+def test_logs_page_filters_laravel_levels(qapp, win, ui_ctl):
+    logdir = ui_ctl.site("blog").path / "storage" / "logs"
+    logdir.mkdir(parents=True)
+    (logdir / "laravel.log").write_text("[2026-10-18 09:00:00] local.DEBUG: noise\n"
+                                        "[2026-10-18 09:00:01] local.ERROR: boom\n#0 trace\n")
+    win.go("Logs")
+    page = page_of(win, "Logs")
+    pump(qapp, win, 6)
+    page.source.setCurrentText("blog (laravel.log)")
+    page.level.setCurrentIndex(page.level.findData("error"))
+    page.load()
+    pump(qapp, win, 10)
+    assert "boom" in page.view.toPlainText() and "#0 trace" in page.view.toPlainText()
+    assert "noise" not in page.view.toPlainText() and not page.level.isHidden()
+    page.source.setCurrentText("Nginx (error)")
+    page.load()
+    assert page.level.isHidden() and page.clear_btn.isHidden()
+
+
+def test_share_page_cloudflare_needs_no_token(qapp, win, ui_ctl):
+    win.go("Share")
+    page = page_of(win, "Share")
+    pump(qapp, win, 6)
+    page.radio["cloudflare"].setChecked(True)
+    pump(qapp, win, 10)
+    assert ui_ctl.cfg.share_provider == "cloudflare"
+    assert page.auth.isHidden() and page.start.isEnabled()
+    page.radio["ngrok"].setChecked(True)
+    pump(qapp, win, 10)
+    assert not page.auth.isHidden() and not page.start.isEnabled()   # no verified token
+
+
+def test_php_page_shows_xdebug(qapp, win, ui_ctl):
+    win.go("PHP")
+    page = page_of(win, "PHP")
+    pump(qapp, win, 6)
+    toggles = [w for w in page.xdebug.findChildren(Toggle)]
+    assert len(toggles) == 1   # 8.3 has xdebug in mods-available; 8.2 offers "Install Xdebug"
+    toggles[0].click()
+    pump(qapp, win, 10)
+    assert ui_ctl.php.xdebug_state("8.3") == "on"
+
+
+def test_sites_page_shows_a_new_folder_by_itself(qapp, win, ui_ctl, tmp_path):
+    win.go("Sites")
+    page = page_of(win, "Sites")
+    pump(qapp, win, 4)
+    from pipanel.ui.pages.sites import SiteRow
+    (tmp_path / "PHPProject" / "fresh").mkdir()
+    page._fs_timer.setInterval(10)
+    import time as _t
+    for _ in range(100):
+        pump(qapp, win, 2)
+        if any(r.site.name == "fresh" for r in page.findChildren(SiteRow)):
+            break
+        _t.sleep(0.02)
+    assert "fresh" in [r.site.name for r in page.findChildren(SiteRow) if r.isVisibleTo(page)]
+
+
+def test_database_page_table_and_tools(qapp, win, ui_ctl, runner, monkeypatch):
+    from pipanel.ui.pages.mysql import human_size
+    assert human_size(512) == "512 B" and human_size(49152) == "48.0 KB" and human_size(3 * 1024 ** 3) == "3.0 GB"
+    page = page_of(win, "Database")
+    page.show_databases([("blog", 12, 49152), ("shop-api", 3, 2048), ("news", 0, 0)])
+    tbl = page.table
+    assert tbl.keys_shown() == ["blog", "news", "shop-api"] and not tbl.table.isHidden()
+    tbl._sort_clicked(2)   # by size: sorted by bytes, not by the text
+    assert tbl.keys_shown() == ["news", "shop-api", "blog"]
+    tbl._sort_clicked(2)
+    assert tbl.keys_shown() == ["blog", "shop-api", "news"]
+    page.filter.setText("sho")
+    assert tbl.keys_shown() == ["shop-api"]
+    page.filter.clear()
+    page.select_db("blog")
+    assert page.selected_db() == "blog"
+    removed = []
+    monkeypatch.setattr(win, "confirm", lambda _t: True)
+    monkeypatch.setattr(ui_ctl.mysql, "drop_database", removed.append)
+    row = tbl.keys_shown().index("shop-api")
+    from PySide6.QtWidgets import QPushButton
+    menu = tbl.table.cellWidget(row, 3).findChildren(QPushButton)[0].menu()
+    menu.aboutToShow.emit()
+    texts = [a.text() for a in menu.actions() if not a.isSeparator()]
+    assert texts[0] == "Install phpMyAdmin or Adminer to browse it…" and "Back up (.sql.gz)…" in texts
+    next(a for a in menu.actions() if a.text() == "Delete…").trigger()
+    pump(qapp, win, 10)
+    assert removed == ["shop-api"]
+    page.show_databases([])
+    assert tbl.table.isHidden() and not tbl.empty.isHidden()
+    page.show_tools()
+    texts = [w.text() for w in page.tools.findChildren(type(tbl.empty))]
+    assert "phpMyAdmin" in texts and "Adminer" in texts
+
+
+def test_database_page_pages_hundreds_of_databases(qapp, win, ui_ctl):
+    page = page_of(win, "Database")
+    tbl = page.table
+    page.show_databases([(f"db{i:03d}", i, i * 1000) for i in range(245)])
+    assert len(tbl.keys_shown()) == 20 and tbl.table.rowCount() == 20     # only one page of rows exists
+    assert not tbl.pager.isHidden() and tbl.pager.info.text() == "1–20 of 245"
+    tbl.pager.next.click()
+    assert tbl.keys_shown()[0] == "db020" and tbl.pager.info.text() == "21–40 of 245"
+    tbl.pager.go(99)
+    assert tbl.keys_shown()[-1] == "db244" and not tbl.pager.next.isEnabled()
+    page.filter.setText("db13")   # the filter searches every page and starts again at page 1
+    assert tbl.keys_shown() == [f"db13{i}" for i in range(10)] and tbl.pager.isHidden()
+    page.filter.clear()
+    page.select_db("db150")         # selecting turns to the right page
+    assert page.selected_db() == "db150" and tbl.pager.page == 7
+
+
+def test_users_table(qapp, win, ui_ctl, monkeypatch):
+    page = page_of(win, "Database")
+    page.show_users([("root", "localhost", "*"), ("blog", "localhost", "blog, blog_test"), ("tmp", "%", "")])
+    rows = {k: page.user_table.table.item(i, 2).text() for i, k in enumerate(page.user_table.keys_shown())}
+    assert rows == {"blog@localhost": "blog, blog_test", "root@localhost": "all databases", "tmp@%": "none"}
+    dropped = []
+    monkeypatch.setattr(win, "confirm", lambda _t: True)
+    monkeypatch.setattr(ui_ctl.mysql, "drop_user", lambda u, h: dropped.append((u, h)))
+    from PySide6.QtWidgets import QPushButton
+    i = page.user_table.keys_shown().index("root@localhost")
+    assert not page.user_table.table.cellWidget(i, 3).findChildren(QPushButton)   # root: in its own card
+    i = page.user_table.keys_shown().index("tmp@%")
+    menu = page.user_table.table.cellWidget(i, 3).findChildren(QPushButton)[0].menu()
+    menu.aboutToShow.emit()
+    next(a for a in menu.actions() if a.text() == "Delete…").trigger()
+    pump(qapp, win, 10)
+    assert dropped == [("tmp", "%")]
+
+
+def test_sites_page_marks_a_cloned_project(qapp, win, ui_ctl):
+    win.go("Sites")
+    page = page_of(win, "Sites")
+    page.refresh()
+    pump(qapp, win, 4)
+    from pipanel.ui.pages.sites import SiteRow
+    rows = {r.site.name: r for r in page.findChildren(SiteRow) if r.isVisibleTo(page)}
+    def badges(row):
+        from PySide6.QtWidgets import QPushButton
+        return ["Needs setup" for w in row.findChildren(QPushButton) if w.property("needsSetup")]
+    assert "Needs setup" in badges(rows["blog"])         # Laravel without .env
+    assert "Needs setup" not in badges(rows["plain"])
+    (ui_ctl.site("blog").path / ".env").write_text("APP_KEY=base64:x\n")
+    page.refresh()
+    pump(qapp, win, 4)
+    rows = {r.site.name: r for r in page.findChildren(SiteRow) if r.isVisibleTo(page)}
+    assert "Needs setup" not in badges(rows["blog"])
+
+
+# ---------- notifications, Ctrl+K, recent sites ----------
+def test_broke_tells_a_crash_from_a_stop():
+    from pipanel.ui.notify import broke
+    assert broke("active", "failed") and broke(None, "failed") and broke("active", "activating")
+    assert not broke("active", "inactive") and not broke("inactive", "activating") and not broke(None, "active")
+
+
+def test_watchdog_reports_a_crash_once_with_the_reason(qapp, win, ui_ctl, runner, monkeypatch):
+    shown = []
+    monkeypatch.setattr(win.notifier, "show", lambda name, title, body: shown.append((name, title, body)))
+    runner.on(["journalctl"], Result(0, "Starting x\nbind() to 0.0.0.0:80 failed (98: Address already in use)\n"))
+    runner.on(["ss"], Result(0, 'LISTEN 0 511 0.0.0.0:80 0.0.0.0:* users:(("apache2",pid=9,fd=3))\n'))
+    wd = win.watchdog
+    wd.check({"nginx": "active", "dns": "active"})
+    wd.check({"nginx": "failed", "dns": "active"})
+    pump(qapp, win, 10)
+    wd.check({"nginx": "failed", "dns": "inactive"})   # still broken: not again; dns was stopped: not a crash
+    pump(qapp, win, 10)
+    assert len(shown) == 1 and shown[0][1] == "Nginx stopped working"
+    assert "Address already in use" in shown[0][2] and "apache2" in shown[0][2]
+    assert not win.problem.isHidden() and "Nginx stopped working" in win.problem.text.text()
+    win._maybe_fixed({"nginx": "active"})
+    assert win.problem.isHidden()
+    wd.check({"nginx": "active"})
+    wd.check({"nginx": "failed"})                        # a new breakdown is reported again
+    pump(qapp, win, 10)
+    assert len(shown) == 2
+    ui_ctl.cfg.notify = False
+    wd.check({"nginx": "active"}); wd.check({"nginx": "failed"})
+    pump(qapp, win, 10)
+    assert len(shown) == 2 and not win.problem.isHidden()   # the banner still shows it
+
+
+def test_notification_action_restarts_the_service(qapp, win, ui_ctl, runner):
+    from pipanel.core.services import unit_name
+    from pipanel.ui.notify import Notifier
+    import subprocess as sp
+    calls = []
+
+    def spawn(argv, **kw):
+        calls.append(argv)
+        return sp.CompletedProcess(argv, 0, "restart\n", "")
+    n = Notifier(spawn=spawn)
+    n.has_notify_send = True
+    got = []
+    n.action.connect(lambda s, k: got.append((s, k)))
+    n.show("nginx", "Nginx stopped working", "why")
+    for _ in range(50):
+        pump(qapp, win, 1)
+        if got:
+            break
+    assert got == [("nginx", "restart")]
+    assert "--action=restart=Restart" in calls[0] and calls[0][-2:] == ["Nginx stopped working", "why"]
+    win.watchdog.act("nginx", "restart")
+    pump(qapp, win, 10)
+    assert ["systemctl", "--user", "restart", unit_name("nginx")] in runner.calls
+
+
+def test_palette_finds_sites_and_actions(qapp, win, ui_ctl, monkeypatch):
+    from pipanel.ui.palette import Palette, matches
+    opened = []
+    monkeypatch.setattr("pipanel.core.actions.open_url", opened.append)
+    p = Palette(win)
+    texts = lambda: [p.list.item(i).text() for i in range(p.list.count())]
+    p.query.setText("blog code")
+    assert texts() == ["blog.test   ·   Open in VS Code"]
+    p.query.setText("pla")
+    assert texts()[0] == "plain.test   ·   Open in browser"
+    p.run_current()
+    assert opened == ["http://plain.test"] and ui_ctl.cfg.recent_sites[0] == "plain"
+    p = Palette(win)
+    p.query.setText("go to data")
+    p.run_current()
+    assert win.title.text() == "Database"
+    many = [type(p.entries[0])(f"site{i}.test", "Open in browser", lambda: None) for i in range(500)]
+    assert len(matches(many, "site")) == 60 and matches(many, "site42")[0].title == "site42.test"
+
+
+def test_tray_lists_recent_sites_only(qapp, win, ui_ctl, runner):
+    from pipanel.ui.tray import Tray
+    ui_ctl.opened("plain")
+    tray = Tray(ui_ctl, win, qapp, win.monitor)
+    tray.about_to_show()
+    menu = next(a.menu() for a in tray.menu.actions() if a.text() == "Open site")
+    assert [a.text() for a in menu.actions()] == ["plain.test", "blog.test"]   # the recent one first
+    assert [a.text() for a in menu.actions()[0].menu().actions()] == [
+        "Open in browser", "Open in VS Code", "Open terminal", "Open folder"]
+
+
+def test_recent_sites_order_and_limit(ui_ctl, tmp_path):
+    for i in range(12):
+        (tmp_path / "PHPProject" / f"p{i:02d}").mkdir()
+    for n in ("p05", "blog", "p05", "p11"):
+        ui_ctl.opened(n)
+    assert ui_ctl.cfg.recent_sites == ["p11", "p05", "blog"]
+    names = [s.name for s in ui_ctl.recent_sites(8)]
+    assert names[:3] == ["p11", "p05", "blog"] and len(names) == 8
+    for i in range(10):
+        ui_ctl.opened(f"p{i:02d}")
+    assert len(ui_ctl.cfg.recent_sites) == 8
+
+
+def test_sites_filter_for_many_sites(qapp, win, ui_ctl, tmp_path):
+    for i in range(8):
+        (tmp_path / "PHPProject" / f"client-{i}").mkdir()
+    page = page_of(win, "Sites")
+    win.go("Sites")
+    page.refresh()
+    pump(qapp, win, 4)
+    assert not page.filter.isHidden()
+    page.filter.setText("client-3")
+    pump(qapp, win, 4)
+    from pipanel.ui.pages.sites import SiteRow
+    shown = [r.site.name for r in page.findChildren(SiteRow) if r.isVisibleTo(page)]
+    assert shown == ["client-3"]
+    page.filter.clear()
+
+
+def test_site_card_has_one_actions_menu_with_icons(qapp, win, ui_ctl, monkeypatch):
+    win.go("Sites")
+    page = page_of(win, "Sites")
+    page.refresh()
+    pump(qapp, win, 4)
+    from pipanel.ui.pages.sites import SiteRow
+    row = next(r for r in page.findChildren(SiteRow) if r.isVisibleTo(page) and r.site.name == "blog")
+    menu = row.actions.menu()
+    menu.aboutToShow.emit()
+    texts = [a.text() for a in menu.actions() if not a.isSeparator()]
+    assert texts[:4] == ["Open in browser", "Open in VS Code", "Open terminal", "Open folder"]
+    assert "Laravel: packages and processes" in texts and "Set up the project…" in texts
+    assert all(not a.icon().isNull() for a in menu.actions() if not a.isSeparator())
+    next(a for a in menu.actions() if a.text() == "View logs").trigger()
+    assert win.title.text() == "Logs" and page_of(win, "Logs").source.currentText() == "blog (laravel.log)"
+    win.go("Sites")
+    next(a for a in menu.actions() if a.text() == "Share publicly…").trigger()
+    assert win.title.text() == "Share" and page_of(win, "Share").site.currentText() == "blog"
+
+
+def test_sites_page_pages_hundreds_of_sites(qapp, win, ui_ctl, tmp_path):
+    for i in range(130):
+        (tmp_path / "PHPProject" / f"client-{i:03d}").mkdir()
+    page = page_of(win, "Sites")
+    win.go("Sites")
+    page.refresh()
+    pump(qapp, win, 4)
+    from pipanel.ui.pages.sites import SiteRow
+    shown = lambda: [r.site.name for r in page.findChildren(SiteRow) if r.isVisibleTo(page)]
+    assert len(shown()) == 20 and page.pager.info.text() == "1–20 of 132"
+    assert page.count_label.text() == "132 sites"
+    page.pager.go(6)
+    pump(qapp, win, 4)
+    assert shown() == [f"client-{i}" for i in range(119, 130)] + ["plain"]   # blog is first: 132 = 6 x 20 + 12
+    page.filter.setText("client-05")
+    pump(qapp, win, 4)
+    assert shown() == [f"client-05{i}" for i in range(10)] and page.pager.isHidden()

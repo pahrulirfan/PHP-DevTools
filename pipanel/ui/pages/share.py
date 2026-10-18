@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QComboBox, QLineEdit
+from PySide6.QtWidgets import QButtonGroup, QComboBox, QLineEdit, QRadioButton
 
 from ...core import actions
 from ...core.ngrok import SIGNUP_URL, TOKEN_URL
@@ -15,6 +15,22 @@ class SharePage(Page):
     icon_name = "share"
 
     def build(self) -> None:
+        self.provider = Card("Share with")
+        self.providers = QButtonGroup(self)
+        self.radio = {}
+        row = hbox(spacing=20)
+        for key, text in (("cloudflare", "Cloudflare quick tunnel (no account)"), ("ngrok", "ngrok (free account)")):
+            rb = QRadioButton(text)
+            rb.toggled.connect(lambda on, k=key: on and self.set_provider(k))
+            self.providers.addButton(rb)
+            self.radio[key] = rb
+            row.addWidget(rb)
+        row.addStretch(1)
+        self.provider.body.addLayout(row)
+        self.provider_note = label("", "muted", wrap=True)
+        self.provider.body.addWidget(self.provider_note)
+        self.body.addWidget(self.provider)
+
         self.auth = Card("ngrok account")
         self.token = QLineEdit()
         self.token.setEchoMode(QLineEdit.Password)
@@ -39,9 +55,8 @@ class SharePage(Page):
         self.url.setOpenExternalLinks(True)
         self.copy_btn = button("Copy URL", None, "copy", self.copy)
         self.share.body.addLayout(hbox(self.url, None, self.copy_btn))
-        self.share.body.addWidget(label("Free ngrok accounts are limited (one session, and a warning page the first time "
-                                        "a link is opened). Sharing always goes through the local HTTP port; ngrok provides the public HTTPS.",
-                                        "muted", wrap=True))
+        self.share.body.addWidget(label("Sharing always goes through the local HTTP port; the tunnel provides the "
+                                        "public HTTPS. Only one site is shared at a time.", "muted", wrap=True))
         self.body.addWidget(self.share)
         self._timer = QTimer(self, interval=1500)
         self._timer.timeout.connect(self.poll)
@@ -51,11 +66,21 @@ class SharePage(Page):
     def refresh(self) -> None:
         cur = self.site.currentText()
         self.site.clear()
-        self.site.addItems([s.name for s in self.ctl.sites()])
+        self.site.addItems([s.name for s in self.ctl.sites()] + [x.name for x in self.ctl.proxies()])
         if cur:
             self.site.setCurrentText(cur)
+        provider = self.ctl.cfg.share_provider
+        self.radio[provider].blockSignals(True)
+        self.radio[provider].setChecked(True)
+        self.radio[provider].blockSignals(False)
+        self.provider_note.setText(
+            "A random https://….trycloudflare.com link, no sign-up. Meant for quick demos: the link changes every "
+            "time and has no uptime guarantee." if provider == "cloudflare" else
+            "Needs a free ngrok account and authtoken. Free accounts allow one session and show a warning page "
+            "the first time a link is opened.")
+        self.auth.setVisible(provider == "ngrok")
         state = self.ctl.ngrok_state()
-        self._verified = state == "verified"
+        self._verified = state == "verified" or provider == "cloudflare"
         self.start.setToolTip("" if self._verified else
                               "Save your authtoken and verify it first" if state == "missing" else "Verify your token first")
         self.token.setPlaceholderText("Paste your authtoken here" if state == "missing"
@@ -77,10 +102,15 @@ class SharePage(Page):
             w = self.get_token.itemAt(i).widget()
             if w and w is not self.verify_btn:
                 w.setVisible(state == "missing")
-        self.run(lambda: self.ctl.services.status(["ngrok"]), done=self._status)
+        self.run(self.ctl.share_state, done=self._status)
 
-    def _status(self, st) -> None:
-        up = st.get("ngrok") == "active"
+    def set_provider(self, key: str) -> None:
+        if key != self.ctl.cfg.share_provider:
+            self.ctl.set_share_provider(key)
+            self.refresh()
+
+    def _status(self, running) -> None:
+        up = running is not None
         self.dot.set_state("on" if up else "off")
         self.start.setEnabled(not up and self._verified)
         self.stop.setEnabled(up)
@@ -89,6 +119,12 @@ class SharePage(Page):
         else:
             self.url.setText("")
             self.copy_btn.setEnabled(False)
+
+    def select(self, site: str) -> None:
+        self.refresh()
+        i = self.site.findText(site)
+        if i >= 0:
+            self.site.setCurrentIndex(i)
 
     def save_token(self) -> None:
         t = self.token.text()
@@ -127,7 +163,8 @@ class SharePage(Page):
             self._tries = 0
             self._timer.start()
             self.refresh()
-        self.run(lambda: self.ctl.share(name), done=done, label="Starting tunnel…")
+        self.run(lambda: self.ctl.share(name), done=done, label="Starting tunnel…",
+                 failed=lambda e: (self.win.error(e), self.refresh()))
 
     def stop_share(self) -> None:
         self._timer.stop()

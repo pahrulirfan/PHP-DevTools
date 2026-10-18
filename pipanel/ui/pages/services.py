@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QHBoxLayout
 
 from ...core.doctor import OK, WARN
@@ -35,29 +34,22 @@ class ServicesPage(Page):
         self.results_box.setVisible(False)
         self.body.addWidget(self.doc)
         self.body.addWidget(self.results_box)
-
-        self._timer = QTimer(self, interval=3000)
-        self._timer.timeout.connect(self.poll)
+        self.win.monitor.changed.connect(self._states)
 
     def header_actions(self):
         return [button("Start all", "primary", "play", self.start_all),
                 button("Stop all", None, "stop", self.stop_all)]
 
-    def showEvent(self, e) -> None:
-        super().showEvent(e)
-        self._timer.start()
-
-    def hideEvent(self, e) -> None:
-        super().hideEvent(e)
-        self._timer.stop()
-
     def refresh(self) -> None:
+        if self.win.monitor.states:
+            self._states(self.win.monitor.states)
         self.poll()
 
     def poll(self) -> None:
-        self.run(self.ctl.service_states, done=self._states)
+        self.win.monitor.refresh()
 
     def _states(self, states: dict[str, str]) -> None:
+        in_use = self.ctl.php_in_use()
         if set(states) != set(self.rows):
             clear_layout_after_title(self.cards_lay)
             self.rows.clear()
@@ -73,13 +65,14 @@ class ServicesPage(Page):
         for name, st in states.items():
             dot, text, tg = self.rows[name]
             dot.set_state(STATE_DOT.get(st, "off"))
-            text.setText(STATE_TEXT.get(st, st))
+            idle = name.startswith("php") and name[3:] not in in_use and st == "inactive"
+            text.setText("Not used by any site" if idle else STATE_TEXT.get(st, st))
             tg.blockSignals(True)
             tg.setChecked(st in ("active", "activating"))
             tg.blockSignals(False)
 
     def toggle(self, name: str, on: bool) -> None:
-        fn = self.ctl.services.start if on else self.ctl.services.stop
+        fn = self.ctl.start_service if on else self.ctl.stop_service
         self.run(lambda: fn(name), done=lambda r: (self.win.error(r.text) if not r.ok else None, self.poll()))
 
     def start_all(self) -> None:

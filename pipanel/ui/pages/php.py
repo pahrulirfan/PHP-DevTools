@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLineEdit, QScrollArea, QFrame,
-                               QWidget)
+                               QVBoxLayout, QWidget)
 
 from ...core.config import PHP_DEFAULTS
 from ...core.controller import ControllerError
 from ...core.php import COMMON_EXTRAS, ESSENTIAL, SUPPORTED
-from ..widgets import _gone, Card, badge, button, clear_layout, hbox, label
+from ..widgets import _gone, Card, Toggle, badge, button, clear_layout, hbox, label
 from .base import Page
 
 SETTING_LABELS = {"memory_limit": "memory_limit", "upload_max_filesize": "upload_max_filesize",
@@ -54,6 +54,22 @@ class PHPPage(Page):
         self.ext.body.addLayout(hbox(self.ext_name, button("Install extension", None, "plus", self.install_ext), None))
         self.body.addWidget(self.ext)
 
+        self.xdebug = Card("Xdebug")
+        self.xdebug.body.addWidget(label(
+            "Step debugging from your editor (port 9003). Turn it on only while debugging: it slows every request "
+            "down. Applies to the sites and the terminal using that PHP version.", "muted", wrap=True))
+        self.xdebug_rows = QVBoxLayout()
+        self.xdebug_rows.setSpacing(8)
+        self.xdebug.body.addLayout(self.xdebug_rows)
+        self.launch_site = QComboBox()
+        self.launch_site.setMinimumWidth(180)
+        self.launch_site.setAccessibleName("Project for launch.json")
+        self.xdebug.body.addLayout(hbox(label("VS Code", "muted"), self.launch_site,
+                                        button("Create launch.json", None, "code", self.create_launch,
+                                               tooltip="Adds a 'Listen for Xdebug' configuration (needs the PHP "
+                                                       "Debug extension)"), None))
+        self.body.addWidget(self.xdebug)
+
         self.composer = Card("Composer")
         self.composer_label = label("", "muted")
         self.composer_btn = button("Install Composer", "primary", on_click=self.install_composer)
@@ -99,6 +115,7 @@ class PHPPage(Page):
         if cur in installed:
             self.ext_version.setCurrentIndex(self.ext_version.findData(cur))
         self.refresh_ext()
+        self.refresh_xdebug(installed)
         phar = ctl.paths.bin / "composer.phar"
         self.composer_label.setText("Installed at ~/.local/share/pipanel/bin/composer" if phar.exists()
                                     else "Not installed")
@@ -118,6 +135,45 @@ class PHPPage(Page):
                 cb.setToolTip(f"{name} is required by Laravel and Composer")
             cb.clicked.connect(lambda checked, n=name, v=v: self.toggle_ext(v, n, checked))
             self.ext_grid.addWidget(cb, i // 4, i % 4)
+
+    def refresh_xdebug(self, installed: list[str]) -> None:
+        clear_layout(self.xdebug_rows)
+        if not installed:
+            self.xdebug_rows.addWidget(label("Install a PHP version first.", "muted"))
+        for v in installed:
+            state = self.ctl.php.xdebug_state(v)
+            row = QHBoxLayout()
+            row.addWidget(label(f"PHP {v}", name="cardTitle"))
+            if state == "missing":
+                row.addWidget(label("not installed", "muted"))
+                row.addStretch(1)
+                row.addWidget(button("Install Xdebug", None, "plus", lambda v=v: self.install_named_ext(v, "xdebug")))
+            else:
+                row.addWidget(badge("On", "warning") if state == "on" else label("off", "muted"))
+                row.addStretch(1)
+                tg = Toggle(state == "on")
+                tg.setAccessibleName(f"Xdebug for PHP {v}")
+                tg.clicked.connect(lambda on, v=v: self.set_xdebug(v, on))
+                row.addWidget(tg)
+            self.xdebug_rows.addLayout(row)
+        cur = self.launch_site.currentText()
+        self.launch_site.clear()
+        self.launch_site.addItems([s.name for s in self.ctl.sites()])
+        if cur:
+            self.launch_site.setCurrentText(cur)
+
+    def set_xdebug(self, v: str, on: bool) -> None:
+        def done(_r):
+            self.win.toast(f"Xdebug {'on' if on else 'off'} for PHP {v}")
+            self.refresh()
+        self.run(lambda: self.ctl.set_xdebug(v, on), done=done, failed=lambda e: (self.win.error(e), self.refresh()),
+                 label=f"Turning Xdebug {'on' if on else 'off'}…")
+
+    def create_launch(self) -> None:
+        name = self.launch_site.currentText()
+        if name:
+            self.run(lambda: self.ctl.vscode_launch(name), label="Writing launch.json…",
+                     done=lambda f: self.win.toast(f"Saved .vscode/{f.name}: start 'Listen for Xdebug' in VS Code"))
 
     # ---- actions ----
     def install(self, v: str) -> None:
@@ -153,8 +209,12 @@ class PHPPage(Page):
     def install_ext(self) -> None:
         v, name = self.ext_version.currentData(), self.ext_name.currentText().strip().lower()
         if v and name:
-            self.run(lambda: self.ctl.priv.install_ext(v, name), label=f"Installing {name} for PHP {v}…", lock="system",
-                     done=lambda r: (self._result(r, f"{name} installed"), self.ext_name.clearEditText()))
+            self.install_named_ext(v, name)
+            self.ext_name.clearEditText()
+
+    def install_named_ext(self, v: str, name: str) -> None:
+        self.run(lambda: self.ctl.priv.install_ext(v, name), label=f"Installing {name} for PHP {v}…", lock="system",
+                 done=lambda r: self._result(r, f"{name} installed"))
 
     def install_composer(self) -> None:
         self.run(self.ctl.install_composer, label="Downloading Composer…",
