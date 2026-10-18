@@ -81,7 +81,7 @@ class LogsPage(Page):
         self.level.setVisible(src.laravel)
         self.clear_btn.setVisible(src.path is not None)
         level = self.level.currentData() if src.laravel else "debug"
-        self.run(lambda: logs.filter_level(logs.read(src, self.ctl.runner, 600 if src.laravel else 300), level),
+        self.run(lambda: logs.filter_level(self.ctl.read_log(src), level),
                  done=self._show)
 
     def clear(self) -> None:

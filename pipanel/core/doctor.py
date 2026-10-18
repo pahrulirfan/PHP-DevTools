@@ -158,3 +158,82 @@ class Doctor:
             elif not self.paths.php_socket(v).exists():
                 out.append(Check(f"php{v}", f"PHP-FPM {v} socket is missing", WARN, fix="start_all"))
         return out
+
+
+class DesktopDoctor:
+    """Diagnostics on Windows and macOS: the same questions, other answers (no systemd, apt or resolved)."""
+
+    def __init__(self, ctl):
+        self.ctl = ctl
+
+    def run_all(self) -> list[Check]:
+        c, out = self.ctl, []
+        out.append(Check("stack", "Nginx is installed", OK) if c.stack.ready() else
+                   Check("stack", "Nginx is not installed", FAIL, "Run the first-time setup.", fix="setup"))
+        out.append(Check("php", f"PHP {', '.join(c.php.installed())} installed", OK) if c.php.installed() else
+                   Check("php", "No PHP version is installed", FAIL, fix="setup"))
+        in_use = c.php_in_use()
+        names = c.services.core_services(c.cfg, in_use)
+        st = c.services.status(names)
+        down = [n for n, s in st.items() if s != "active"]
+        out.append(Check("units", "PIPanel services are not running", WARN, ", ".join(down), fix="start_all")
+                   if down else Check("units", "All PIPanel services are running", OK))
+        out.append(self.ports(st.get(NGINX) == "active"))
+        if not dns.query_a("pipanel-check." + c.cfg.tld, port=c.cfg.dns_port):
+            out.append(Check("dns", "PIPanel's DNS server is not answering", FAIL, f"port {c.cfg.dns_port}",
+                             fix="start_all"))
+        elif not dns.system_resolves("pipanel-check." + c.cfg.tld):
+            out.append(Check("dns", f".{c.cfg.tld} does not resolve through the system", FAIL,
+                             "The administrator step of the setup is missing.", fix="setup_dns"))
+        else:
+            out.append(Check("dns", f"The .{c.cfg.tld} domain resolves", OK))
+        if not c.certs.available():
+            out.append(Check("mkcert", "HTTPS is unavailable: mkcert is missing (plain http:// works)", WARN,
+                             fix="setup"))
+        elif not c.certs.system_trusted():
+            out.append(Check("ca", "The certificate authority is not trusted yet", WARN, fix="install_ca"))
+        else:
+            out.append(Check("ca", "Certificates are trusted", OK))
+        return out
+
+    def ports(self, ours: bool) -> Check:
+        c = self.ctl
+        owners = listeners(c.runner)
+        notes = []
+        for port in (c.cfg.http_port, c.cfg.https_port):
+            who = owners.get(port)
+            if who is not None and not ours:
+                notes.append(f"port {port} is used by {who or 'another program'}")
+        if notes:
+            return Check("ports", "A web port is taken", FAIL, "; ".join(notes) +
+                         ". Stop that program, or choose other ports in Settings.")
+        return Check("ports", f"Ports {c.cfg.http_port}/{c.cfg.https_port} are free or used by PIPanel", OK)
+
+
+def listeners(runner: Runner) -> dict[int, str]:
+    """{port: program} of the TCP ports something listens on (netstat on Windows, lsof on macOS)."""
+    from . import platform
+    out: dict[int, str] = {}
+    if platform.is_windows():
+        r = runner.run(["netstat", "-ano", "-p", "TCP"])
+        pids: dict[int, str] = {}
+        for line in r.out.splitlines():
+            cols = line.split()
+            if len(cols) >= 5 and cols[3].upper() == "LISTENING":
+                m = re.search(r":(\d+)$", cols[1])
+                if m:
+                    pids[int(m.group(1))] = cols[4]
+        names = {}
+        tl = runner.run(["tasklist", "/FO", "CSV", "/NH"])
+        for line in tl.out.splitlines():
+            cells = [x.strip('"') for x in line.split('","')]
+            if len(cells) > 1:
+                names[cells[1]] = cells[0]
+        return {port: names.get(pid, f"PID {pid}") for port, pid in pids.items()}
+    r = runner.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN"])
+    for line in r.out.splitlines()[1:]:
+        cols = line.split()
+        m = re.search(r":(\d+)$", cols[8]) if len(cols) > 8 else None
+        if m:
+            out[int(m.group(1))] = cols[0]
+    return out

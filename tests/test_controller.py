@@ -181,14 +181,14 @@ def test_set_site_docroot_applies_and_validates(ctl, tmp_path, paths):
     ctl.park(tmp_path / "proj")
     ctl.set_site_docroot("app", "web/")
     assert ctl.cfg.sites["app"].docroot == "web"
-    assert f"root {proj.resolve() / 'web'};" in (paths.nginx_sites / "app.conf").read_text()
+    assert f'root "{proj.resolve() / "web"}";' in (paths.nginx_sites / "app.conf").read_text()
     with pytest.raises(ControllerError, match="not a folder inside"):
         ctl.set_site_docroot("app", "../x")
     with pytest.raises(ControllerError):
         ctl.set_site_docroot("app", "/etc")
     ctl.set_site_docroot("app", "")   # back to auto-detect
     assert ctl.cfg.sites["app"].docroot is None
-    assert f"root {proj};" in (paths.nginx_sites / "app.conf").read_text()
+    assert f'root "{proj}";' in (paths.nginx_sites / "app.conf").read_text()
 
 
 def test_replace_parked_folder(ctl, tmp_path):

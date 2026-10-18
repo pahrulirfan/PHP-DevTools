@@ -97,8 +97,9 @@ class SettingsPage(Page):
                                button("Remove", None, on_click=lambda p=p: self.remove_folder(p))))
         lay.addLayout(hbox(button("Add folder", "primary", "folder-plus", self.add_folder), None))
         self.sys_label.setText(f"Domain: *.{ctl.cfg.tld}   DNS: 127.0.0.1:{ctl.cfg.dns_port}\n"
-                               f"Config: {str(ctl.paths.config).replace(str(Path.home()), '~')}\nRoot helper: "
-                               f"{'installed' if ctl.priv.available() else 'not installed (run ./install.sh)'}")
+                               f"Config: {str(ctl.paths.config).replace(str(Path.home()), '~')}" +
+                               (f"\nRoot helper: {'installed' if ctl.priv.available() else 'not installed (run ./install.sh)'}"
+                                if ctl.linux else ""))
 
     # ---- projects folders ----
     def _pick(self, title: str, start: str) -> str:

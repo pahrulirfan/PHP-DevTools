@@ -4,13 +4,15 @@ from __future__ import annotations
 import json
 import os
 import re
-import sys
 from pathlib import Path
 from typing import Callable
 
 from . import config as cfgmod
 from . import ports
 from . import autostart, processes, projects, watch
+from . import platform as plat
+from . import privileged as privmod
+from . import stack as stackmod
 from .adminer import SITE as ADMINER_SITE, Adminer
 from .certs import Certs, CertError
 from .cloudflare import Cloudflared
@@ -29,8 +31,7 @@ from .privileged import Privileged
 from .redis import Redis
 from .runner import Result, Runner
 from .services import (ADDONS, CLOUDFLARED, DNS, MAIL, MYSQL, NGINX, NGROK, REDIS, TUNNELS, Services, SyncReport,
-                       path_unit_name, php_service, service_title, site_process_service, split_site_process,
-                       unit_name)
+                       php_service, service_title, site_process_service, split_site_process)
 from .sites import LARAVEL, Proxy, Site, normalize_target, relative_docroot, safe_subdir, scan, slugify
 from .templates import valid_site_name
 from .wordpress import NewSite, WordPress, WordPressError
@@ -49,23 +50,40 @@ class Controller:
         self.fetch = fetch
         self.home = home or Path(os.environ.get("HOME", str(Path.home())))
         self.cfg: Config = cfgmod.load(self.paths.config_file)
-        self.php = php or PHP(self.paths)
-        self.services = Services(self.paths, self.runner, self.php)
-        self.certs = Certs(self.paths, self.runner)
-        self.priv = privileged or Privileged(self.runner)
+        self.platform = plat.current()
+        self.stack = stackmod.for_platform(self.paths, self.runner)
+        self.php = php or self.stack.make_php()
+        self.services = Services(self.paths, self.runner, self.php, nginx_bin=self.stack.nginx_bin,
+                                 etc_nginx=self.stack.etc_nginx,
+                                 dns_argv=self.stack.dns_argv(self.cfg.dns_port, self.cfg.tld))
+        self.certs = Certs(self.paths, self.runner, mkcert=self.stack.mkcert)
+        self.priv = privileged or privmod.for_platform(self.runner)
         self.node = Node(self.paths, self.runner)
         self.shell = ShellIntegration(self.paths, self.home, self.node)
-        self.mysql = MySQL(self.paths, self.runner, port=self.cfg.mysql_port, engine=self.cfg.db_engine)
+        self.mysql = self._make_mysql(self.cfg.db_engine)
         self.config_home = Path(os.environ.get("XDG_CONFIG_HOME") or self.home / ".config")
         self.ngrok = Ngrok(self.paths, self.runner, home=self.home, config_home=self.config_home)
         self.laravel = LaravelTools(self.paths, self.runner, self.php)
         self.mailpit = Mailpit(self.paths)
-        self.redis = Redis(self.paths)
+        self.redis = Redis(self.paths, server=self.stack.redis_server)
         self.adminer = Adminer(self.paths)
         self.phpmyadmin = PhpMyAdmin(self.paths)
         self.cloudflared = Cloudflared(self.paths)
         self.wordpress = WordPress(self.paths, self.runner, self.php)
         self.last_notes: list[str] = []
+
+    @property
+    def linux(self) -> bool:
+        return self.platform == plat.LINUX
+
+    def _make_mysql(self, engine: str) -> MySQL:
+        return MySQL(self.paths, self.runner, port=self.cfg.mysql_port, engine=engine, **self.stack.db(engine))
+
+    def needs_setup(self) -> bool:
+        """Is the one-time setup still to be done? (The window shows a banner.)"""
+        if self.linux:
+            return not (self.php.installed() and self.priv.available())
+        return not (self.stack.ready() and self.php.installed() and (self.paths.config / ".dns-ready").exists())
 
     # ---------- config ----------
     def save(self) -> None:
@@ -146,26 +164,11 @@ class Controller:
 
     def _write_watcher(self) -> None:
         """Watch the projects folders so that a new folder is served right away, even with the app closed."""
-        f = self.paths.systemd_user / path_unit_name(watch.SERVICE)
+        from . import platform as plat
         folders = [p for p in self.cfg.parked if Path(p).is_dir()]
-        if not folders:
-            if f.exists():
-                self.runner.run(["systemctl", "--user", "disable", "--now", f.name])
-                f.unlink()
-                self.services.remove_unit(watch.SERVICE)
-            return
-        self.services.write_extra_unit(
-            watch.SERVICE, description="PIPanel: serve new project folders",
-            exec_start=f"{sys.executable} -m pipanel sync --settle",
-            env=watch.sync_env(self.paths.config, self.paths.data, self.paths.state, self.paths.run))
-        text = watch.render_path_unit(folders)
-        if f.exists() and f.read_text() == text:
-            return
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(text)
-        self.runner.run(["systemctl", "--user", "daemon-reload"])
-        self.runner.run(["systemctl", "--user", "enable" if self.cfg.autostart_services else "disable", f.name])
-        self.runner.run(["systemctl", "--user", "restart", f.name])   # watch the new list of folders now
+        self.services.sup.set_watch(folders, [*plat.self_command(), "sync", "--settle"], self.cfg.autostart_services,
+                                    env=watch.sync_env(self.paths.config, self.paths.data, self.paths.state,
+                                                       self.paths.run))
 
     def sync(self, settle: bool = False) -> int:
         """Bring the config in line with the folders on disk (run by the folder watcher)."""
@@ -339,8 +342,20 @@ class Controller:
     def installed_php(self) -> list[str]:
         return self.php.installed()
 
+    def _get_php(self, v: str) -> Result:
+        """Install the files of a PHP version (no service changes)."""
+        if self.linux:
+            return self.priv.install_php(v)
+        if self.platform == plat.MACOS:
+            return self.php.install(v, self.runner)
+        try:
+            self.php.install(v, self.fetch)
+        except Exception as e:  # noqa: BLE001 - shown as a failed step
+            return Result(1, "", str(e))
+        return Result(0)
+
     def install_php(self, v: str) -> Result:
-        r = self.priv.install_php(v)
+        r = self._get_php(v)
         if r.ok:
             self.php.ensure_conf_d(v, self.cfg.php_settings)
             self.apply()
@@ -355,10 +370,15 @@ class Controller:
             raise ControllerError(f"still in use by: {', '.join(users)}")
         self.services.stop(php_service(v))
         self.services.disable(php_service(v))
-        r = self.priv.remove_php(v)
+        if self.linux:
+            r = self.priv.remove_php(v)
+        elif self.platform == plat.MACOS:
+            r = self.php.uninstall(v, self.runner)
+        else:
+            self.php.remove(v)
+            r = Result(0)
         if r.ok:
-            (self.paths.systemd_user / unit_name(php_service(v))).unlink(missing_ok=True)
-            self.runner.run(["systemctl", "--user", "daemon-reload"])
+            self.services.remove_unit(php_service(v))
         return r
 
     def set_default_php(self, v: str) -> SyncReport:
@@ -380,6 +400,28 @@ class Controller:
         self.apply()
         for v in self.php.installed():
             self.services.reload(php_service(v))
+
+    def install_extension(self, v: str, name: str) -> Result:
+        """An extra PHP extension (redis, xdebug, imagick, ...) for one version; enabled at once, except Xdebug
+        (it slows every request down: turn it on when you debug)."""
+        if self.linux:
+            r = self.priv.install_ext(v, name)
+        elif self.platform == plat.MACOS:
+            r = self.php.install_extension(v, name, self.runner)
+        else:
+            try:
+                self.php.install_extension(v, name, self.fetch)
+                r = Result(0)
+            except Exception as e:  # noqa: BLE001
+                r = Result(1, "", str(e))
+        if r.ok and name != "xdebug" and name in dict(self.php.extensions(v)):
+            try:
+                self.php.set_extension(v, name, True)
+                if self.services.status([php_service(v)]).get(php_service(v)) == "active":
+                    self.services.restart(php_service(v))
+            except Exception:  # noqa: BLE001 - installed; the user can tick it
+                pass
+        return r
 
     def toggle_extension(self, v: str, name: str, on: bool) -> None:
         self.php.set_extension(v, name, on)
@@ -415,7 +457,9 @@ class Controller:
 
     # ---------- setup & layanan ----------
     def setup(self) -> list[tuple[str, Result]]:
-        """First-time setup. Stops at the first root step that fails."""
+        """First-time setup. Stops at the first step that the rest depends on."""
+        if not self.linux:
+            return self._setup_desktop()
         steps: list[tuple[str, Result]] = []
         r = self.priv.setup(self.cfg.default_php)
         steps.append(("Packages and system settings", r))
@@ -433,6 +477,48 @@ class Controller:
         except Exception as e:  # noqa: BLE001 - reported to the UI as-is
             steps.append(("PHP CLI + Composer", Result(1, "", str(e))))
         self.shell.install()
+        self.apply()
+        steps.append(("Start services", self.start_all()))
+        return steps
+
+    def _setup_desktop(self) -> list[tuple[str, Result]]:
+        """Windows and macOS: download or brew-install the web server and PHP as the user, then the one step that
+        needs an administrator (DNS for *.test, and on macOS trusting the certificate authority)."""
+        steps: list[tuple[str, Result]] = []
+        self.paths.ensure()
+        what = "Nginx and mkcert" + (" (Homebrew)" if self.platform == plat.MACOS else " (download)")
+        r = self.stack.install_base(self.fetch)
+        steps.append((what, r))
+        if not r.ok:
+            return steps
+        v = self.cfg.default_php
+        if v not in self.php.installed():
+            r = self._get_php(v)
+            steps.append((f"PHP {v}", r))
+            if not r.ok:
+                return steps
+        self.php.ensure_conf_d(v, self.cfg.php_settings)
+        ca = self.certs.install_ca_user()   # creates mkcert's certificate authority
+        root = self.certs.caroot()
+        ca_file = root / "rootCA.pem" if ca.ok and root and (root / "rootCA.pem").exists() else None
+        r = self.priv.setup_dns(self.cfg.tld, self.cfg.dns_port, ca_file)   # one administrator prompt
+        steps.append((f"DNS for *.{self.cfg.tld}" + (" and trusted HTTPS" if ca_file else "") + " (administrator)", r))
+        if r.ok:
+            (self.paths.config / ".dns-ready").write_text("")
+            if ca_file:
+                self.certs.mark_trusted()
+        if not ca_file:
+            steps.append(("Certificate authority for HTTPS", ca if not ca.ok else Result(1, "", "mkcert made no CA")))
+        try:
+            self.php.write_cli_wrapper(v)
+            self.php.install_composer(self.fetch)
+            steps.append(("PHP CLI + Composer", Result(0)))
+        except Exception as e:  # noqa: BLE001
+            steps.append(("PHP CLI + Composer", Result(1, "", str(e))))
+        try:
+            self.shell.install()
+        except Exception as e:  # noqa: BLE001
+            steps.append(("Terminal integration", Result(1, "", str(e))))
         self.apply()
         steps.append(("Start services", self.start_all()))
         return steps
@@ -480,10 +566,16 @@ class Controller:
 
     def failure_report(self, name: str) -> str:
         """Why a service is not running, in words: its last log lines plus who holds its port."""
-        r = self.runner.run(["journalctl", "--user", "-u", unit_name(name), "-n", "8", "--no-pager", "-o", "cat"])
-        lines = [l for l in r.out.splitlines()
-                 if l.strip() and not l.startswith(("Started", "Starting", "Stopped", "Stopping"))]
+        log = self.services.sup.last_lines(name, 8)
+        lines = [l for l in log.splitlines()
+                 if l.strip() and not l.startswith(("Started", "Starting", "Stopped", "Stopping", "--- "))]
         return self.explain_failures({name: "\n".join(lines[-3:]) or "no log output"})
+
+    def read_log(self, src) -> str:
+        """A log file, or the output of a service."""
+        from . import logs
+        return logs.tail(src.path, 600 if src.laravel else 300) if src.path is not None \
+            else self.services.sup.journal(src.unit or "", 300)
 
     def opened(self, site_name: str) -> None:
         """Remember a site that was just opened, for the tray menu."""
@@ -544,18 +636,23 @@ class Controller:
     def set_autostart_services(self, on: bool) -> None:
         self.cfg.autostart_services = on
         self.save()
-        watcher = [path_unit_name(watch.SERVICE)] if (self.paths.systemd_user /
-                                                       path_unit_name(watch.SERVICE)).exists() else []
         if on:
             self.services._ctl("enable", *self.services.core_services(self.cfg, self.php_in_use()),
                                *self.wanted_tools())
         else:
             self.services._ctl("disable", *self.services.core_services(self.cfg), *self.services.addons())
-        if watcher:
-            self.runner.run(["systemctl", "--user", "enable" if on else "disable", *watcher])
+        self.services.sup.watch_enabled(on)
+        self.services.sup.autostart(on)
 
     def install_cli_launcher(self, python: str) -> Path:
         """`pipanel` command for terminals (next to `php` and `composer`)."""
+        if plat.is_windows():
+            f = self.paths.bin / "pipanel.cmd"
+            text = "@echo off\r\n" + " ".join(f'"{a}"' for a in plat.self_command()) + " %*\r\n"
+            if not f.exists() or f.read_text() != text:
+                self.paths.bin.mkdir(parents=True, exist_ok=True)
+                f.write_text(text)
+            return f
         f = self.paths.bin / "pipanel"
         text = f'#!/bin/sh\nexec "{python}" -m pipanel "$@"\n'
         if not f.exists() or f.read_text() != text:
@@ -598,7 +695,7 @@ class Controller:
             steps.append((f"Stop {self.db_label}", self.services.stop(MYSQL)))
         self.cfg.db_engine = engine
         self.save()
-        self.mysql = MySQL(self.paths, self.runner, port=self.cfg.mysql_port, engine=engine)
+        self.mysql = self._make_mysql(engine)
         self._write_db_tools()
         if self.mysql_available() and self.mysql.initialized():
             self.mysql.write_config()
@@ -609,7 +706,11 @@ class Controller:
 
     def install_database(self) -> list[tuple[str, Result]]:
         label = self.db_label
-        steps = [(f"{label} packages + AppArmor", self.priv.install_database(self.cfg.db_engine))]
+        if self.linux:
+            steps = [(f"{label} packages + AppArmor", self.priv.install_database(self.cfg.db_engine))]
+        else:
+            how = "Homebrew" if self.platform == plat.MACOS else "download"
+            steps = [(f"{label} ({how})", self.stack.install_database(self.cfg.db_engine, self.fetch))]
         if not steps[0][1].ok:
             return steps
         try:
@@ -648,7 +749,7 @@ class Controller:
         return self.start_service(MAIL)
 
     def install_redis(self) -> list[tuple[str, Result]]:
-        steps = [("Redis package", self.priv.install_redis())]
+        steps = [("Redis package", self.priv.install_redis() if self.linux else self.stack.install_redis(self.fetch))]
         if not steps[0][1].ok:
             return steps
         self.redis.write_config()
@@ -691,7 +792,9 @@ class Controller:
         if parent is None:
             raise ControllerError("park a folder first")
         try:
-            target = projects.create_laravel(self.runner, self.paths, parent, name)
+            composer = None if self.linux else self.php.cli_cmd(self.cfg.default_php,
+                                                                  [str(self.paths.bin / "composer.phar")])
+            target = projects.create_laravel(self.runner, self.paths, parent, name, composer)
             slug = slugify(target.name)
             if slug:   # APP_URL=http://localhost -> the project's own .test address
                 kind = LARAVEL if (target / "artisan").is_file() else "php"
@@ -902,10 +1005,18 @@ class Controller:
 
     # ---------- diagnostics ----------
     def doctor(self) -> list[Check]:
+        if not self.linux:
+            from .doctor import DesktopDoctor
+            return DesktopDoctor(self).run_all()
         d = Doctor(self.paths, self.runner, self.cfg, self.services, self.php, self.certs, self.priv, db=self.mysql)
         return d.run_all({s.php for s in self.sites()}, self.php_in_use())
 
     def fix(self, fix_id: str) -> Result:
+        if fix_id == "setup_dns":
+            r = self.priv.setup_dns(self.cfg.tld, self.cfg.dns_port)
+            if r.ok:
+                (self.paths.config / ".dns-ready").write_text("")
+            return r
         if fix_id == "setup":
             return self.setup()[-1][1]
         if fix_id == "fix_system_services":
@@ -915,7 +1026,10 @@ class Controller:
         if fix_id == "install_ca":
             r = self.certs.install_ca_user()
             root = self.certs.caroot()
-            return self.priv.trust_ca(root / "rootCA.pem") if r.ok and root else r
+            r = self.priv.trust_ca(root / "rootCA.pem") if r.ok and root else r
+            if r.ok and not self.linux:
+                self.certs.mark_trusted()
+            return r
         if fix_id == "install_db_tools":
             if self.priv.outdated():
                 return Result(1, "", "The root helper is outdated: run ./install.sh again, then try once more.")

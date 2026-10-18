@@ -335,7 +335,7 @@ def test_adminer_install_and_signin_wrapper(ctl, paths, tmp_path):
     index = (ctl.adminer.root / "index.php").read_text()
     assert str(ctl.mysql.client_cnf) in index and "127.0.0.1:3306" in index
     conf = (paths.nginx_sites / "adminer.conf").read_text()
-    assert f"root {ctl.adminer.root};" in conf and "deny all;" in conf
+    assert f'root "{ctl.adminer.root}";' in conf and "deny all;" in conf
     ctl.set_db_engine("mariadb")
     assert "mariadb/client.cnf" in (ctl.adminer.root / "index.php").read_text()
 
@@ -496,7 +496,7 @@ def test_cloudflare_quicktunnel_parsing_and_unit(paths):
     c.install(lambda u: b"\x7fELF...", "x86_64")
     assert c.installed()
     spec = c.unit_spec("blog", port=8080)
-    assert "--url http://127.0.0.1:8080 --http-host-header blog.test" in spec["exec_start"]
+    assert "--url http://127.0.0.1:8080 --http-host-header blog.test" in " ".join(spec["argv"])
     with pytest.raises(CloudflareError):
         c.unit_spec("bad name")
 

@@ -20,17 +20,26 @@ def dotenv_value(v: str) -> str:
     return '"' + v.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$") + '"'
 
 
-def create_laravel(runner: Runner, paths: Paths, parent: Path, name: str) -> Path:
+def create_laravel(runner: Runner, paths: Paths, parent: Path, name: str,
+                   composer_cmd: tuple[list[str], dict[str, str]] | None = None) -> Path:
+    """`composer create-project laravel/laravel`. `composer_cmd` is (argv prefix, environment) to run Composer
+    with a given PHP (Windows has no shell wrapper)."""
     if not _NAME.match(name):
         raise ProjectError(f"invalid project name: {name!r}")
     target = parent / name
     if target.exists():
         raise ProjectError(f"{target} already exists")
-    composer = paths.bin / "composer"
-    if not composer.exists():
-        raise ProjectError("Composer is not installed")
-    r = runner.run([str(composer), "create-project", "laravel/laravel", name, "--no-interaction", "--prefer-dist"],
-                   cwd=str(parent), env={"PATH": f"{paths.bin}:/usr/local/bin:/usr/bin:/bin"}, timeout=1800)
+    if composer_cmd is not None:
+        if not (paths.bin / "composer.phar").exists():
+            raise ProjectError("Composer is not installed")
+        prefix, env = composer_cmd
+    else:
+        composer = paths.bin / "composer"
+        if not composer.exists():
+            raise ProjectError("Composer is not installed")
+        prefix, env = [str(composer)], {"PATH": f"{paths.bin}:/usr/local/bin:/usr/bin:/bin"}
+    r = runner.run([*prefix, "create-project", "laravel/laravel", name, "--no-interaction", "--prefer-dist"],
+                   cwd=str(parent), env=env, timeout=1800)
     if not r.ok:
         raise ProjectError(r.text)
     return target

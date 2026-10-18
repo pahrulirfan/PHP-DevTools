@@ -17,8 +17,16 @@ class Paths:
     systemd_user: Path  # ~/.config/systemd/user
 
     @classmethod
-    def from_env(cls, env: dict[str, str] | None = None) -> "Paths":
+    def from_env(cls, env: dict[str, str] | None = None, system: str | None = None) -> "Paths":
+        from . import platform
         env = os.environ if env is None else env
+        system = system or platform.current()
+        if system == platform.WINDOWS:   # %LOCALAPPDATA%\PIPanel\{config,data,state,run}
+            base = Path(env.get("PIPANEL_HOME") or Path(env.get("LOCALAPPDATA") or Path.home() / "AppData/Local") / "PIPanel")
+            return cls.under(base, systemd_user=base / "units")
+        if system == platform.MACOS:     # no spaces: socket paths go into nginx and PHP-FPM configs
+            base = Path(env.get("PIPANEL_HOME") or Path(env.get("HOME") or Path.home()) / "Library" / "PIPanel")
+            return cls.under(base, systemd_user=base / "units")
         home = Path(env.get("HOME") or Path.home())
 
         def xdg(var: str, default: str) -> Path:
@@ -35,14 +43,14 @@ class Paths:
         )
 
     @classmethod
-    def under(cls, root: Path) -> "Paths":
-        """All paths under a single folder (for tests)."""
+    def under(cls, root: Path, systemd_user: Path | None = None) -> "Paths":
+        """All paths under a single folder (tests, Windows and macOS)."""
         return cls(
             config=root / "config",
             data=root / "data",
             state=root / "state",
             run=root / "run",
-            systemd_user=root / "systemd-user",
+            systemd_user=systemd_user or root / "systemd-user",
         )
 
     @property

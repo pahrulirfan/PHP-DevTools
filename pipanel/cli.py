@@ -211,11 +211,60 @@ COMMANDS = {"status", "sites", "which", "park", "link", "unlink", "secure", "uns
             "unproxy", "start", "stop", "restart", "open", "share", "share-url", "unshare", "doctor", "sync"}
 
 
+# Internal commands, used by PIPanel itself (not listed in --help)
+HIDDEN = {"_agent", "_dns", "_fcgi", "_run", "_smoke"}
+
+
+def run_tool(argv: list[str], cwd: Path | None = None) -> int:
+    """`php`, `composer` and `wp` on Windows (the .cmd files call this): the PHP version of the site the current
+    folder belongs to, like the shell wrapper on Linux and macOS."""
+    import subprocess
+    from .core import config as cfgmod
+    from .core import stack as stackmod
+    from .core.paths import Paths
+    from .core.runner import Runner
+    if not argv or argv[0] not in ("php", "composer", "wp"):
+        print("usage: pipanel _run php|composer|wp [args]", file=sys.stderr)
+        return 2
+    paths = Paths.from_env()
+    cfg = cfgmod.load(paths.config_file)
+    php = stackmod.for_platform(paths, Runner()).make_php()
+    v = os.environ.get("PIPANEL_PHP") or php.version_for(cwd or Path.cwd(), cfg.default_php)
+    if v not in php.installed():
+        v = cfg.default_php
+    tool = {"php": [], "composer": [str(paths.bin / "composer.phar")], "wp": [str(paths.bin / "wp-cli.phar")]}
+    cmd, env = php.cli_cmd(v, [*tool[argv[0]], *argv[1:]])
+    try:
+        return subprocess.call(cmd, env={**os.environ, **env})
+    except OSError as e:
+        print(f"pipanel: {e}", file=sys.stderr)
+        return 127
+
+
+def hidden(argv: list[str]) -> int:
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "_agent":
+        from .core import agent
+        return agent.main()
+    if cmd == "_dns":
+        from .core import dnsd
+        return dnsd.main(rest)
+    if cmd == "_fcgi":
+        from .core import fcgipool
+        return fcgipool.main(rest)
+    if cmd == "_smoke":
+        from . import smoke
+        return smoke.main()
+    return run_tool(rest)
+
+
 def is_cli(argv: list[str]) -> bool:
-    return bool(argv) and (argv[0] in COMMANDS or argv[0] in ("-h", "--help"))
+    return bool(argv) and (argv[0] in COMMANDS or argv[0] in HIDDEN or argv[0] in ("-h", "--help"))
 
 
 def main(argv: list[str], ctl: Controller | None = None, out=sys.stdout) -> int:
+    if argv and argv[0] in HIDDEN:
+        return hidden(argv)
     a = parser().parse_args(argv)
     ctl = ctl or Controller()
     try:

@@ -104,12 +104,29 @@ class Config:
         return d
 
 
+def defaults() -> Config:
+    """A new configuration for this operating system."""
+    from . import platform
+    cfg = Config()
+    if platform.is_windows():
+        cfg.dns_port = 53   # the Windows DNS client can only send to port 53
+        cfg.default_php = "8.4"
+    elif platform.is_macos():
+        cfg.default_php = "8.4"
+    return cfg
+
+
 def load(path: Path) -> Config:
     try:
         data = json.loads(path.read_text())
     except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return Config()
-    return Config.from_dict(data) if isinstance(data, dict) else Config()
+        return defaults()
+    if not isinstance(data, dict):
+        return defaults()
+    cfg = Config.from_dict(data)
+    if "dns_port" not in data:
+        cfg.dns_port = defaults().dns_port
+    return cfg
 
 
 def save(cfg: Config, path: Path) -> None:

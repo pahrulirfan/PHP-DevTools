@@ -213,7 +213,7 @@ class PHPPage(Page):
             self.ext_name.clearEditText()
 
     def install_named_ext(self, v: str, name: str) -> None:
-        self.run(lambda: self.ctl.priv.install_ext(v, name), label=f"Installing {name} for PHP {v}…", lock="system",
+        self.run(lambda: self.ctl.install_extension(v, name), label=f"Installing {name} for PHP {v}…", lock="system",
                  done=lambda r: self._result(r, f"{name} installed"))
 
     def install_composer(self) -> None:

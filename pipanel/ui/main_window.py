@@ -278,7 +278,7 @@ class MainWindow(QWidget):
 
     # ---- setup ----
     def update_banner(self) -> None:
-        self.banner.setVisible(not (self.ctl.php.installed() and self.ctl.priv.available()))
+        self.banner.setVisible(self.ctl.needs_setup())
 
     def run_setup(self) -> None:
         def done(steps):
