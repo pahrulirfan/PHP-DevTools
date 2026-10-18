@@ -5,7 +5,6 @@ name: Release
 on:
   push:
     tags: ["v*"]
-    branches: [cross-platform]   # temporary: build the packages while the ports are tested
   workflow_dispatch:
     inputs:
       version:
