@@ -36,10 +36,13 @@ SITE="$("$APP/venv/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()
 
 echo "==> Trimming Qt to what PIPanel uses"
 python3 "$SRC/packaging/prune_qt.py" "$SITE" --report /tmp/system-libs.txt
-rm -rf "$APP/venv/bin/pip"* "$SITE"/pip "$SITE"/pip-* "$SITE"/setuptools* "$SITE"/_distutils_hack "$SITE"/pkg_resources
+# pip itself is not needed at run time (careful: "pip*" would also match the pipanel command)
+rm -rf "$APP/venv/bin/pip" "$APP/venv/bin/pip3" "$APP/venv/bin/pip${PY#python}" \
+       "$SITE"/pip "$SITE"/pip-* "$SITE"/setuptools* "$SITE"/_distutils_hack "$SITE"/pkg_resources
+test -x "$APP/venv/bin/pipanel" || { echo "the pipanel command is missing from the venv" >&2; exit 1; }
 
 echo "==> Checking that the app starts with the trimmed Qt"
-HOME=$(mktemp -d) XDG_RUNTIME_DIR=$(mktemp -d) QT_QPA_PLATFORM=offscreen "$APP/venv/bin/python" -m pipanel _smoke
+HOME=$(mktemp -d) XDG_RUNTIME_DIR=$(mktemp -d) QT_QPA_PLATFORM=offscreen "$APP/venv/bin/pipanel" _smoke
 "$APP/venv/bin/python" -m compileall -q "$SITE" >/dev/null || true
 
 echo "==> Assembling the package tree"

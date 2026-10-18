@@ -105,6 +105,8 @@ class Services:
 
     def _nginx_args(self) -> list[str]:
         d = self.paths.nginx_dir
+        if platform.is_windows():   # nginx for Windows wants forward slashes, and a prefix that ends with one
+            return [self.nginx_bin, "-p", d.as_posix() + "/", "-c", (d / "nginx.conf").as_posix(), "-e", "stderr"]
         return [self.nginx_bin, "-p", str(d), "-c", str(d / "nginx.conf"), "-e", "stderr"]
 
     def nginx_test(self) -> Result:

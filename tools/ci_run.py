@@ -13,8 +13,12 @@ def main(argv: list[str]) -> int:
         stream.reconfigure(encoding="utf-8", errors="replace")
     title, cmd = argv[0], argv[argv.index("--") + 1:]
     shell = len(cmd) == 1   # one string: run it through the shell (pipes, globs, &&)
-    p = subprocess.Popen(cmd[0] if shell else cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         text=True, errors="replace", env=os.environ)
+    try:
+        p = subprocess.Popen(cmd[0] if shell else cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             text=True, errors="replace", env=os.environ)
+    except OSError as e:
+        print(f"::error title={title} (cannot start)::{e}", flush=True)
+        return 127
     lines = []
     for line in p.stdout:
         sys.stdout.write(line)

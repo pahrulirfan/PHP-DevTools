@@ -3,6 +3,7 @@ import pytest
 from pipanel.core import templates as t
 
 
+@pytest.mark.posix
 def test_site_http_only(paths):
     out = t.render_site(paths, name="blog", docroot="/p/blog/public", php_version="8.3")
     assert "server_name blog.test;" in out
@@ -11,6 +12,7 @@ def test_site_http_only(paths):
     assert "443" not in out and "ssl_certificate" not in out
 
 
+@pytest.mark.posix
 def test_site_https_old_nginx_uses_http2_on_listen(paths):
     out = t.render_site(paths, name="blog", docroot="/p", php_version="8.3", https=True,
                         nginx_version="1.18.0")
@@ -44,6 +46,7 @@ def test_nginx_conf_is_user_owned(paths):
     assert f'pid "{paths.run}/nginx.pid";' in out
 
 
+@pytest.mark.posix
 def test_php_fpm_no_user_directive(paths):
     out = t.render_php_fpm(paths, "8.3")
     assert f"listen = {paths.run}/php8.3.sock" in out
