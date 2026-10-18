@@ -29,6 +29,28 @@ class FakeRunner(Runner):
         return any(c[:len(prefix)] == list(prefix) for c in self.calls)
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "native: runs with the real platform detection of the machine")
+    config.addinivalue_line("markers", "posix: needs a POSIX shell and file system (skipped on Windows)")
+
+
+@pytest.fixture(autouse=True)
+def simulate_linux(request, monkeypatch):
+    """Most tests check the Linux code paths, on any machine. Tests for Windows and macOS set the platform
+    themselves; `native` tests use the machine's own."""
+    if "native" not in request.keywords:
+        monkeypatch.setenv("PIPANEL_PLATFORM", "linux")
+
+
+def pytest_collection_modifyitems(config, items):
+    import sys
+    if sys.platform.startswith("win"):
+        skip = pytest.mark.skip(reason="needs a POSIX system")
+        for item in items:
+            if "posix" in item.keywords:
+                item.add_marker(skip)
+
+
 @pytest.fixture
 def paths(tmp_path):
     p = Paths.under(tmp_path)

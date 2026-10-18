@@ -105,7 +105,7 @@ def test_start_all_enables_when_autostart(svc, runner):
 
 def test_unit_prefix_can_be_overridden_for_real_tests(monkeypatch):
     import importlib
-    import pipanel.core.services as s
+    import pipanel.core.supervisor as s
     monkeypatch.setenv("PIPANEL_UNIT_PREFIX", "pipanel-e2e")
     s2 = importlib.reload(s)
     try:
