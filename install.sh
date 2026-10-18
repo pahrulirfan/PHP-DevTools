@@ -26,7 +26,10 @@ mkdir -p "$APPS" "$HICOLOR/scalable/apps"
 cp pipanel/assets/pipanel.svg "$HICOLOR/scalable/apps/pipanel.svg"
 .venv/bin/python -m pipanel.ui.icons "$HICOLOR" >/dev/null   # PNGs at 16..256 px
 # Absolute icon path: the menu finds it even when an old icon-theme.cache would hide a newly added icon.
-sed -e "s|@ROOT@|$ROOT|g" -e "s|@ICON@|$HICOLOR/scalable/apps/pipanel.svg|g" packaging/pipanel.desktop > "$APPS/pipanel.desktop"
+# Write a temp file and rename it: the menu watches this folder and may read a half-written file, then ignore the
+# launcher until the next login.
+sed -e "s|@ROOT@|$ROOT|g" -e "s|@ICON@|$HICOLOR/scalable/apps/pipanel.svg|g" packaging/pipanel.desktop > "$APPS/.pipanel.desktop.tmp"
+mv -f "$APPS/.pipanel.desktop.tmp" "$APPS/pipanel.desktop"
 # Rebuild the icon cache too (-t: no index.theme in the per-user folder), so theme lookups by name work.
 gtk-update-icon-cache -f -t "$HICOLOR" >/dev/null 2>&1 || true
 update-desktop-database "$APPS" 2>/dev/null || true
