@@ -104,7 +104,7 @@ class WindowsPrivileged(DesktopPrivileged):
               f"-ArgumentList {quoted}; exit $p.ExitCode")
         r = self.runner.run(["powershell", "-NoProfile", "-Command", ps], timeout=300)
         try:
-            text = Path(log).read_text(encoding="utf-8", errors="replace")
+            text = Path(log).read_text(encoding="utf-8-sig", errors="replace")
             os.unlink(log)
         except OSError:
             text = ""

@@ -103,7 +103,11 @@ jobs:
         run: |
           v="${VERSION#v}"
           mkdir -p dmg && cp -R dist/PIPanel.app dmg/ && ln -s /Applications dmg/Applications
-          hdiutil create -volname "PIPanel $v" -srcfolder dmg -ov -format UDZO "dist/PIPanel-$v-macos-${{ matrix.arch }}.dmg"
+          for i in 1 2 3 4 5; do   # hdiutil sometimes reports "Resource busy" on the runners
+            hdiutil create -volname "PIPanel $v" -srcfolder dmg -ov -format UDZO "dist/PIPanel-$v-macos-${{ matrix.arch }}.dmg" && break
+            sleep 10
+          done
+          test -f "dist/PIPanel-$v-macos-${{ matrix.arch }}.dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.arch }}

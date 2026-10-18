@@ -32,7 +32,9 @@ switch ($Command) {
             if ((Resolve-Path $CaFile).Path -ne (Resolve-Path $expected).Path) { throw "only $expected may be trusted" }
             $text = Get-Content -Raw $CaFile
             if ($text -match "PRIVATE KEY" -or ([regex]::Matches($text, "BEGIN CERTIFICATE")).Count -ne 1) { throw "not a single certificate" }
-            Import-Certificate -FilePath $CaFile -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+            # certutil, not Import-Certificate: that module fails to load when PowerShell 7 is installed too
+            & certutil.exe -addstore -f Root $CaFile | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "certutil could not add the certificate (exit $LASTEXITCODE)" }
             Write-Output "PIPanel: HTTPS certificates of mkcert are trusted"
         }
     }
