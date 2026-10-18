@@ -131,16 +131,76 @@ class PHP:
         elif not enabled and existing is not None:
             existing.unlink()
 
+    # --- Xdebug ---
+    XDEBUG_INI = "99-pipanel-xdebug.ini"
+
+    def xdebug_state(self, v: str) -> str:
+        """'missing' (package not installed), 'off', or 'on'."""
+        if not (self._mods(v) / "xdebug.ini").exists():
+            return "missing"
+        return "on" if self._enabled_link(v, "xdebug") else "off"
+
+    def set_xdebug(self, v: str, on: bool) -> None:
+        """Step debugging for an IDE listening on port 9003. Off by default: Xdebug slows every request down."""
+        self.set_extension(v, "xdebug", on)
+        f = self.conf_d(v) / self.XDEBUG_INI
+        if on:
+            f.write_text("; Managed by PIPanel. Do not edit manually.\n"
+                         "xdebug.mode = debug,develop\n"
+                         "xdebug.start_with_request = yes\n"
+                         "xdebug.client_host = 127.0.0.1\n"
+                         "xdebug.client_port = 9003\n"
+                         "; no warning on every request when no editor is listening\n"
+                         "xdebug.log_level = 0\n")
+        else:
+            f.unlink(missing_ok=True)
+
     # --- CLI wrapper ---
+    @property
+    def site_map(self) -> Path:
+        return self.paths.config / "php" / "sites.map"
+
+    def write_site_map(self, sites: list[tuple[Path, str]]) -> bool:
+        """Folder -> PHP version of every site, deepest folder first, read by the `php` wrapper."""
+        rows: dict[str, str] = {}
+        for path, v in sites:
+            for p in dict.fromkeys((str(path), str(Path(path).resolve()))):
+                if "\t" not in p and "\n" not in p and re.fullmatch(r"8\.\d", v):
+                    rows[p.rstrip("/") or "/"] = v
+        text = "".join(f"{p}\t{v}\n" for p, v in sorted(rows.items(), key=lambda kv: (-len(kv[0]), kv[0])))
+        f = self.site_map
+        if f.exists() and f.read_text() == text:
+            return False
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text)
+        return True
+
     def write_cli_wrapper(self, v: str) -> Path:
+        """`php` for terminals: inside a site folder it runs that site's PHP version (like Herd), elsewhere the
+        default `v`. PIPANEL_PHP=8.x picks a version explicitly."""
         self.paths.bin.mkdir(parents=True, exist_ok=True)
         f = self.paths.bin / "php"
-        f.write_text(
+        conf_root = self.paths.config / "php"
+        text = (
             "#!/bin/sh\n"
             f"# PIPanel: PHP CLI {v}\n"
-            f'export PHP_INI_SCAN_DIR="{self.conf_d(v)}"\n'
-            f'exec "{self.cli_bin(v)}" "$@"\n'
+            f'v="{v}"\n'
+            'if [ -n "$PIPANEL_PHP" ]; then\n'
+            '  v="$PIPANEL_PHP"\n'
+            f'elif [ -r "{self.site_map}" ]; then\n'
+            '  for d in "$PWD/" "$(pwd -P)/"; do\n'
+            "    while IFS='\t' read -r p pv; do\n"
+            '      case "$d" in "$p"/*) v="$pv"; break 2 ;; esac\n'
+            f'    done < "{self.site_map}"\n'
+            "  done\n"
+            "fi\n"
+            f'case "$v" in 8.[0-9]) ;; *) v="{v}" ;; esac\n'
+            f'[ -x "{self.usr_bin}/php$v" ] || v="{v}"\n'
+            f'export PHP_INI_SCAN_DIR="{conf_root}/$v/conf.d"\n'
+            f'exec "{self.usr_bin}/php$v" "$@"\n'
         )
+        if not f.exists() or f.read_text() != text:
+            f.write_text(text)
         f.chmod(f.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         return f
 
@@ -167,7 +227,33 @@ class PHP:
         return w
 
 
-def http_fetch(url: str) -> bytes:
+def http_fetch(url: str, attempts: int = 6) -> bytes:
+    """Download a file. A connection that drops halfway (common for the large cloudflared and Mailpit
+    downloads on a slow line) is resumed with a Range request instead of starting over."""
+    import http.client
+    import time
+    import urllib.error
     import urllib.request
-    with urllib.request.urlopen(url, timeout=60) as r:  # noqa: S310 (https only)
-        return r.read()
+    data, total = bytearray(), None
+    for i in range(attempts):
+        req = urllib.request.Request(url, headers={"Range": f"bytes={len(data)}-"} if data else {})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 (https only)
+                if data and r.status != 206:   # the server ignored the range: start over
+                    data.clear()
+                if total is None and r.headers.get("Content-Length") and r.status == 200:
+                    total = int(r.headers["Content-Length"])
+                while chunk := r.read(1 << 20):
+                    data += chunk
+        except urllib.error.HTTPError:
+            raise   # the server answered: retrying will not help
+        except (http.client.IncompleteRead, OSError) as e:
+            if i == attempts - 1:
+                raise
+            if isinstance(e, http.client.IncompleteRead):
+                data += e.partial
+            time.sleep(1 + i)
+            continue
+        if total is None or len(data) >= total:
+            return bytes(data)
+    raise OSError(f"download incomplete: {url} ({len(data)} of {total} bytes)")

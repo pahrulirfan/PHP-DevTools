@@ -131,3 +131,34 @@ def test_terminal_cmd():
     p = Path("/x")
     assert terminal_cmd(p, which=lambda t: t if t == "gnome-terminal" else None) == ["gnome-terminal", "--working-directory=/x"]
     assert terminal_cmd(p, which=lambda t: None) is None
+
+
+# ---------- downloads ----------
+def test_http_fetch_resumes_a_dropped_download():
+    from pipanel.core.php import http_fetch
+    payload = bytes(range(256)) * 400
+    seen = []
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            rng = self.headers.get("Range")
+            seen.append(rng)
+            start = int(rng.split("=")[1].rstrip("-")) if rng else 0
+            self.send_response(206 if rng else 200)
+            self.send_header("Content-Length", str(len(payload) - start))
+            self.end_headers()
+            part = payload[start:start + 30000] if len(seen) < 3 else payload[start:]
+            self.wfile.write(part)   # the first two answers stop early, like a dropped connection
+            self.wfile.flush()
+            self.close_connection = True
+
+        def log_message(self, *a):
+            pass
+
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        assert http_fetch(f"http://127.0.0.1:{srv.server_port}/f") == payload
+    finally:
+        srv.shutdown()
+    assert seen == [None, "bytes=30000-", "bytes=60000-"]

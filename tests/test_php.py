@@ -73,13 +73,68 @@ def test_good_settings():
     assert validate_setting("upload_max_filesize", " 64M ") == "64M"
 
 
+def fake_php_binary(ubin, v):
+    """A stand-in for /usr/bin/php8.x that prints which version ran and its ini scan folder."""
+    f = ubin / f"php{v}"
+    f.write_text(f'#!/bin/sh\necho "{v} $PHP_INI_SCAN_DIR $*"\n')
+    f.chmod(0o755)
+
+
+def run_php(wrapper, cwd, **env):
+    import os
+    import subprocess
+    out = subprocess.run([str(wrapper), "-v"], cwd=cwd, capture_output=True, text=True,
+                         env={"PATH": os.environ["PATH"], **env})
+    return out.stdout.split()
+
+
 def test_cli_wrapper(paths, fake_etc):
     php = PHP(paths, **fake_etc)
+    fake_php_binary(fake_etc["usr_bin"], "8.3")
     w = php.write_cli_wrapper("8.3")
-    text = w.read_text()
     assert w.stat().st_mode & 0o111
-    assert f'PHP_INI_SCAN_DIR="{php.conf_d("8.3")}"' in text and "php8.3" in text
     assert php.cli_version() == "8.3"
+    assert run_php(w, paths.data) == ["8.3", str(php.conf_d("8.3")), "-v"]
+
+
+def test_cli_wrapper_follows_the_site_version(paths, fake_etc, tmp_path):
+    php = PHP(paths, **fake_etc)
+    for v in ("8.2", "8.3", "8.4"):
+        fake_php_binary(fake_etc["usr_bin"], v)
+    blog, shop = tmp_path / "proj" / "blog", tmp_path / "proj" / "shop"
+    (blog / "app" / "Models").mkdir(parents=True), shop.mkdir()
+    nested = blog / "packages" / "inner"   # a site inside another site: the deepest folder wins
+    nested.mkdir(parents=True)
+    linked = tmp_path / "link-to-shop"
+    linked.symlink_to(shop)
+    php.write_site_map([(blog, "8.2"), (shop, "8.4"), (nested, "8.3"), (tmp_path / "gone", "9.9")])
+    w = php.write_cli_wrapper("8.3")
+    assert run_php(w, blog)[0] == "8.2"
+    assert run_php(w, blog / "app" / "Models")[:2] == ["8.2", str(php.conf_d("8.2"))]
+    assert run_php(w, nested)[0] == "8.3"
+    assert run_php(w, shop)[0] == "8.4"
+    assert run_php(w, linked)[0] == "8.4"            # reached through a symlink
+    assert run_php(w, tmp_path)[0] == "8.3"           # outside every site: the default
+    assert run_php(w, blog, PIPANEL_PHP="8.4")[0] == "8.4"
+    assert run_php(w, blog, PIPANEL_PHP="nonsense")[0] == "8.3"
+    (fake_etc["usr_bin"] / "php8.4").unlink()       # a site's version that is not installed: the default
+    assert run_php(w, shop)[0] == "8.3"
+    assert "9.9" not in php.site_map.read_text()
+    assert not php.write_site_map([(blog, "8.2"), (shop, "8.4"), (nested, "8.3")])   # unchanged
+
+
+def test_xdebug_toggle(paths, fake_etc):
+    php = PHP(paths, **fake_etc)
+    php.ensure_conf_d("8.3")
+    assert php.xdebug_state("8.3") == "off"      # installed after the first seed: not enabled
+    php.set_xdebug("8.3", True)
+    assert php.xdebug_state("8.3") == "on"
+    ini = (php.conf_d("8.3") / php.XDEBUG_INI).read_text()
+    assert "xdebug.mode = debug" in ini and "client_port = 9003" in ini
+    php.set_xdebug("8.3", False)
+    assert php.xdebug_state("8.3") == "off" and not (php.conf_d("8.3") / php.XDEBUG_INI).exists()
+    (fake_etc["etc_php"] / "8.3" / "mods-available" / "xdebug.ini").unlink()
+    assert php.xdebug_state("8.3") == "missing"
 
 
 def test_composer_checksum(paths, fake_etc):
