@@ -1,6 +1,8 @@
 """Small widgets: toggle, status dot, badge, card, icon button."""
 from __future__ import annotations
 
+from typing import Callable
+
 from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QPointF, QRectF, QSize, Qt, Property
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QAbstractButton, QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
@@ -150,6 +152,32 @@ def icon_button(name: str, tooltip: str, on_click=None) -> QPushButton:
     b = button("", "ghost", name, on_click, tooltip)
     b.setAccessibleName(tooltip)
     b.setFixedSize(30, 30)
+    return b
+
+
+def action_menu(text: str, items: Callable[[], list], tooltip: str | None = None) -> QPushButton:
+    """One button that opens a menu of actions with icons. `items()` returns (icon, text, callback) tuples, or None
+    for a separator; it is called each time the menu opens, so the menu is current and costs nothing until used."""
+    from PySide6.QtGui import QAction
+    from PySide6.QtWidgets import QMenu
+    b = button(text, None, "chevron-down", tooltip=tooltip)
+    b.setLayoutDirection(Qt.RightToLeft)   # the arrow after the text
+    menu = QMenu(b)
+    menu.setLayoutDirection(Qt.LeftToRight)   # icons on the left, whatever the button does
+
+    def fill() -> None:
+        menu.clear()
+        color = theme.tokens()["text-muted"]
+        for entry in items():
+            if entry is None:
+                menu.addSeparator()
+                continue
+            icon_name, label_text, fn = entry
+            a = QAction(icon(icon_name, color, 16), label_text, menu)
+            a.triggered.connect(lambda _=False, f=fn: f())
+            menu.addAction(a)
+    menu.aboutToShow.connect(fill)
+    b.setMenu(menu)
     return b
 
 

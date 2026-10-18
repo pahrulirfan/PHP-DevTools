@@ -38,6 +38,23 @@ class Page(QWidget):
         """Run `fn` in the background. Tasks sharing a `lock` run one after another (e.g. "system" for apt)."""
         self.tasks.run(fn, done=done, failed=failed or self.win.error, label=label, lock=lock)
 
+    def choose_laravel_site(self, title: str) -> str | None:
+        """Ask which Laravel project to change; None when there is none or the dialog was cancelled."""
+        from PySide6.QtWidgets import QInputDialog
+        names = [s.name for s in self.ctl.laravel_sites()]
+        if not names:
+            self.win.error("There is no Laravel project yet.")
+            return None
+        name, ok = QInputDialog.getItem(self, title, "Laravel project:", names, 0, False)
+        return name if ok and name else None
+
+    def write_env(self, preset: str, title: str, database: str | None = None) -> None:
+        """Fill a project's .env with the settings of a PIPanel service, after asking which project."""
+        name = self.choose_laravel_site(title)
+        if name:
+            self.run(lambda: self.ctl.write_env(name, preset, database), label=f"Updating {name}/.env…",
+                     done=lambda vals: self.win.toast(f"{name}/.env updated: {', '.join(vals)}"))
+
     def showEvent(self, e) -> None:
         super().showEvent(e)
         self.refresh()
